@@ -1,1 +1,5 @@
 ESP32/SECRETS.h
+ESP32/.gitignore
+ESP32/platformio.ini
+ESP32/.vscode/extensions.json
+ESP32/lib/README
