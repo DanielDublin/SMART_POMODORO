@@ -1,0 +1,25 @@
+{
+"flutter": {
+    "platforms": {
+        "android": {
+            "default": {
+                "projectId":"smart-pomodoro-2",
+                "appId":"1:169824162373:android:f8cc137e882a7f0cb1492c",
+                "fileOutput":"android/app/google-services.json"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId":"smart-pomodoro-2",
+                    "configurations": {
+                        "android":"1:169824162373:android:f8cc137e882a7f0cb1492c",
+                        "ios":"1:169824162373:ios:26a727694c7216a1b1492c",
+                        "macos":"1:169824162373:ios:26a727694c7216a1b1492c",
+                        "web":"1:169824162373:web:ff3ef0395b10bfc0b1492c",
+                        "windows":"1:169824162373:web:01b7b0c08264b335b1492c"
+                    }
+                }
+            }
+        }
+    }
+}
