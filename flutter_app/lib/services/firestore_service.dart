@@ -28,4 +28,20 @@ class FirestoreService {
 
     await sessionsRef.add(sessionData);
   }
+
+  static Future<List<Map<String, dynamic>>?> getStudySessions() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception("No user logged in");
+
+    final sessionsSnapshot = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('sessions')
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    if (sessionsSnapshot.docs.isEmpty) return null;
+
+    return sessionsSnapshot.docs.map((doc) => doc.data()).toList();
+  }
 }

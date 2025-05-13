@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/firestore_service.dart';
+import 'study_plans_list_screen.dart';
 
 class StudyPlannerSettingsScreen extends StatefulWidget {
   @override
@@ -54,6 +55,10 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Settings saved!')),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => StudyPlansListScreen()),
       );
     }
   }
