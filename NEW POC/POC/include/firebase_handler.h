@@ -14,6 +14,7 @@ typedef enum FirebaseStatus {
 FirebaseStatus setupFirebase();
 void firebaseLoop();
 
+FirebaseStatus testFireBase();
 // Basic Firestore operations
 bool writeToFirestore(const String& path, const String& jsonString);
 String readFromFirestore(const String& path);

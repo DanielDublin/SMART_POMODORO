@@ -4,13 +4,13 @@
 #include <addons/RTDBHelper.h>
 
 // Replace with your WiFi credentials
-#define WIFI_SSID "X"
-#define WIFI_PASSWORD "X"
+#define WIFI_SSID "A this is the wifi 2.4"
+#define WIFI_PASSWORD "05089159180"
 
 // Replace with your Firebase credentials
-#define FIREBASE_API_KEY "X"
-#define FIREBASE_DATABASE_URL "https://X-default-rtdb.firebaseio.com/"
-#define FIREBASE_PROJECT_ID "X"
+#define FIREBASE_API_KEY "AIzaSyDeoMrCH0XKwA8cZ1g1KvUplpajqgxneds"
+#define FIREBASE_DATABASE_URL "https://smart-pomodoro-2-default-rtdb.firebaseio.com/"
+#define FIREBASE_PROJECT_ID "smart-pomodoro-2"
 
 using FirebaseValueCallback = std::function<void(const String&)>;
 using FirebaseErrorCallback = std::function<void(const String&)>;

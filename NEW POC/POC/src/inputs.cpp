@@ -70,6 +70,8 @@ void handleButtons() {
   
   // Handle rotary button with debounce
   if ((millis() - lastRotaryDebounceTime) > debounceDelay) {
+    // Serial.printf("rotarySwitchCurrent: %d\n", rotarySwitchCurrent);
+    // Serial.printf("rotaryButtonState: %d\n", rotaryButtonState);
     if (rotarySwitchCurrent == BUTTON_ACTIVE_STATE && !rotaryButtonState) {
       rotaryButtonState = true;
       Serial.println("Rotary button pressed");
@@ -82,7 +84,7 @@ void handleButtons() {
   }
 }
 
-void handleRotaryEncoder() {
+int handleRotaryEncoder() {
   // Get encoder position
   int currentPosition = encoder.getCount();
   
@@ -90,6 +92,7 @@ void handleRotaryEncoder() {
   if (currentPosition != lastRotaryPosition) {
     // Calculate change
     int change = currentPosition - lastRotaryPosition;
+    if (abs(change) >= 2) {
     rotaryValue += change;
     
     Serial.print("Rotary encoder value: ");
@@ -97,7 +100,10 @@ void handleRotaryEncoder() {
     
     // Update stored position
     lastRotaryPosition = currentPosition;
+    return change;
+    }
   }
+  return 0;
 }
 
 bool isBlueButtonPressed() {

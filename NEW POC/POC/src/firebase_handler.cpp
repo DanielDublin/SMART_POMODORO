@@ -20,24 +20,29 @@ void setFirebaseError(const String& error) {
 }
 
 FirebaseStatus setupFirebase() {
+    Serial.println("Setting up Firebase...");
     displayOLEDText("Firebase Setup...", 0, OLED_NEW_LINE*0, 1, true);
-    displayTFTText("Firebase Setup...", 10, 10, 1, TFT_WHITE, true);
+    // displayTFTText("Firebase Setup...", 10, 10, 1, TFT_WHITE, true);
     
     // Configure Firebase
     config.api_key = FIREBASE_API_KEY;
     config.token_status_callback = tokenStatusCallback;
-
+    config.time_zone = 3;
     // Attempt Firebase authentication
     displayOLEDText("Auth...", 0, OLED_NEW_LINE*1, 1, false);
-    displayTFTText("Auth...", 10, 40, 1, TFT_YELLOW, false);
+    // displayTFTText("Auth...", 10, 40, 1, TFT_YELLOW, false);
+    Serial.println("Attempting Firebase authentication...");
     if (Firebase.signUp(&config, &auth, "", "")) {
+        Serial.println("Firebase Setup - Auth OK");
         displayOLEDText("Auth: OK", 0, OLED_NEW_LINE*1, 1, false);
-        displayTFTText("Auth: OK", 10, 40, 1, TFT_GREEN, false);
+        // displayTFTText("Auth: OK", 10, 40, 1, TFT_GREEN, false);
         firebaseInitialized = true;
     } else {
         String error = String(config.signer.signupError.message.c_str());
         displayOLEDText("Auth: FAILED", 0, OLED_NEW_LINE*1, 1, false);
-        displayTFTText("Auth Failed: " + error, 10, 40, 1, TFT_RED, false);
+        // displayTFTText("Auth FAILED: " + error, 10, 40, 1, TFT_RED, false);
+        Serial.print("Firebase Setup - Auth FAILED, error: ");
+        Serial.println(config.signer.signupError.message.c_str());
         delay(5000);
         setFirebaseError("Auth Failed: " + error);
         return FIREBASE_STATUS_ERROR;
@@ -50,14 +55,21 @@ FirebaseStatus setupFirebase() {
     // Test connection
     if (!Firebase.ready()) {
         setFirebaseError("Connection Failed");
-        displayOLEDText("Auth: FAILED", 0, OLED_NEW_LINE*1, 1, false);
-        displayTFTText("Connection Failed", 10, 70, 1, TFT_RED, false);
+        Serial.println("Firebase Setup - Connection FAILED, error: ");
+        displayOLEDText("Connection Failed", 0, OLED_NEW_LINE*1, 1, false);
+        // displayTFTText("Connection Failed", 10, 70, 1, TFT_RED, false);
         delay(5000);
         return FIREBASE_STATUS_ERROR;
     }
-    
+    return FIREBASE_STATUS_CONNECTED;
+}
+
+
+
+FirebaseStatus testFireBase() {
+    Serial.println("Testing Firestore...");
     displayOLEDText("Testing Firestore...", 0, OLED_NEW_LINE*2, 1, false);
-    displayTFTText("Testing Firestore...", 10, 70, 1, TFT_YELLOW, false);
+    // displayTFTText("Testing Firestore...", 10, 70, 1, TFT_YELLOW, false);
 
     // Test write - will create or update
     String testDoc = "test_collection/test_doc";
@@ -65,12 +77,15 @@ FirebaseStatus setupFirebase() {
     payload.set("fields/test_value/stringValue", "Test Data " + String(millis()));
 
     // Step 1: Check document state
+    Serial.println("Checking document state... ");
     displayTFTText("Checking document state...", 10, 100, 1, TFT_CYAN, false);
     if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", testDoc.c_str(), "")) {
         String payloadMsg = "Doc exists: " + fbdo.payload();
+        Serial.println("Doc exists: " + fbdo.payload());
         displayTFTText(payloadMsg, 10, 130, 1, TFT_CYAN, false);
     } else {
         String errorMsg = "Doc read failed: " + fbdo.errorReason();
+        Serial.println("Doc read failed: " + fbdo.errorReason());
         displayTFTText(errorMsg, 10, 130, 1, TFT_RED, false);
     }
 
@@ -101,6 +116,7 @@ FirebaseStatus setupFirebase() {
 
     displayOLEDText("Firebase Ready!", 0, OLED_NEW_LINE*2, 1, false);
     displayTFTText("Firebase Ready!", 10, 280, 2, TFT_GREEN, false);
+    Serial.println("Firebase initialized");
     return FIREBASE_STATUS_CONNECTED;
 }
 
@@ -147,10 +163,10 @@ String readFromFirestore(const String& path) {
     }
 
     displayOLEDText("Reading...", 0, OLED_NEW_LINE*3, 1, false);
-    displayTFTText("Reading from: " + path, 10, 10, 1, TFT_YELLOW, true);
+    // displayTFTText("Reading from: " + path, 10, 10, 1, TFT_YELLOW, true);
     if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), "")) {
         displayOLEDText("Read OK: " + path, 0, OLED_NEW_LINE*3, 1, false);
-        displayTFTText("Read OK: " + fbdo.payload(), 10, 40, 1, TFT_CYAN, false);
+        // displayTFTText("Read OK: " + fbdo.payload(), 10, 40, 1, TFT_CYAN, false);
         return fbdo.payload().c_str();
     } else {
         String errorMsg = fbdo.errorReason();

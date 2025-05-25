@@ -4,6 +4,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/event_groups.h>
+#include <time.h>
 
 // Event group for WiFi events
 static EventGroupHandle_t wifiEventGroup;
@@ -100,7 +101,7 @@ WiFiStatus setupWiFi() {
   if (!res) {
     return WIFI_CONNECT_FAILED;
   }
-
+  syncTime();
   return WIFI_CONNECTED;
 }
 
@@ -112,7 +113,6 @@ bool waitForWiFiConnection(uint32_t timeout_ms) {
         pdFALSE,
         pdMS_TO_TICKS(timeout_ms)
     );
-    
     return (bits & WIFI_CONNECTED_BIT) != 0;
 }
 
@@ -126,4 +126,48 @@ String getLocalIP() {
 
 void setupBluetooth() {
   Serial.println("Please use setupBluetoothAudio() from bluetooth_audio.cpp");
+}
+
+void syncTime() {
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+
+  Serial.print("Syncing time");
+  time_t now = time(nullptr);
+  while (now < 100000) {
+    delay(500);
+    Serial.print(".");
+    now = time(nullptr);
+  }
+  Serial.println("\nTime synced: " + String(ctime(&now)));
+
+  IPAddress ip;
+if (WiFi.hostByName("google.com", ip)) {
+} else {
+  Serial.println("DNS FAILED for google.com");
+}
+
+}
+
+#define WIFI_SSID "A this is the wifi 2.4"
+#define WIFI_PASSWORD "05089159180"
+
+WiFiStatus setupWiFi2() {
+    Serial.println("Setting up WiFi...");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    unsigned long startAttemptTime = millis();
+    const unsigned long WIFI_TIMEOUT_MS = 15000;
+
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < WIFI_TIMEOUT_MS) {
+        Serial.print(".");
+        delay(500);
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("\nWiFi Connection Failed! Check SSID/Password or signal strength.");
+        return WIFI_CONNECT_FAILED;
+    }
+
+    Serial.println("\nWiFi Connected");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+    return WIFI_CONNECTED;
 }

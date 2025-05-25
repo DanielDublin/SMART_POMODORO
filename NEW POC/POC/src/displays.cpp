@@ -103,6 +103,10 @@ void displayTFTText(const String& text, int x, int y, int size, uint16_t color, 
   tft.println(text);
 }
 
+void clearTFTScreen() {
+  tft.fillScreen(TFT_BLACK);
+}
+
 void displayProgressBar(int percentage, bool onOLED) {
   percentage = constrain(percentage, 0, 100);
   
@@ -164,3 +168,33 @@ void showTFTAnimation(int frame) {
       break;
   }
 } 
+
+void drawTextWithBox(const String& text, int x, int y, int size, uint16_t textColor, uint16_t boxColor) {
+  // Set font size
+  tft.setTextSize(size);
+  tft.setTextColor(textColor, TFT_BLACK); // With background for clean redraw
+  tft.setCursor(x, y);
+  tft.println(text);
+
+  // Estimate width and height of the text
+  int textWidth = text.length() * 6 * size;  // 6 pixels per char at size 1
+  int textHeight = 8 * size;                // 8 pixels per line at size 1
+
+  // Draw rectangle around it
+  tft.drawRect(x - 2, y - 2, textWidth + 4, textHeight + 4, boxColor);
+}
+
+int centerTextX(const String& text, int textSize) {
+  int charWidth = 6 * textSize;  // Default 6 pixels wide per char
+  return (ILI_SCREEN_WIDTH - text.length() * charWidth) / 2;
+}
+
+void drawMenu(const String options[], int numOfOptions, int selected, int startY,  bool redraw) {
+  if (redraw) {
+    tft.fillScreen(TFT_BLACK);
+  }
+  for (int i = 0; i < numOfOptions; i++) {
+    uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
+    drawTextWithBox(options[i], centerTextX(options[i], 2), startY + i * 30, 2, TFT_WHITE, boxColor);
+  }
+}

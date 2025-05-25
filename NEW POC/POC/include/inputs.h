@@ -6,7 +6,7 @@
 
 void setupInputs();
 void handleButtons();
-void handleRotaryEncoder();
+int handleRotaryEncoder();
 
 // Button states
 bool isBlueButtonPressed();
