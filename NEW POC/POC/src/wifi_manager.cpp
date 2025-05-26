@@ -148,8 +148,8 @@ if (WiFi.hostByName("google.com", ip)) {
 
 }
 
-#define WIFI_SSID "A this is the wifi 2.4"
-#define WIFI_PASSWORD "05089159180"
+#define WIFI_SSID "CS_conference"
+#define WIFI_PASSWORD "openday2024"
 
 WiFiStatus setupWiFi2() {
     Serial.println("Setting up WiFi...");

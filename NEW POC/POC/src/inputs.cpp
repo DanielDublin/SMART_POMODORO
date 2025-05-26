@@ -93,14 +93,14 @@ int handleRotaryEncoder() {
     // Calculate change
     int change = currentPosition - lastRotaryPosition;
     if (abs(change) >= 2) {
-    rotaryValue += change;
+    rotaryValue += change / 2;
     
     Serial.print("Rotary encoder value: ");
     Serial.println(rotaryValue);
     
     // Update stored position
     lastRotaryPosition = currentPosition;
-    return change;
+    return change / 2;
     }
   }
   return 0;

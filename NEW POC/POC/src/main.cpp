@@ -123,6 +123,7 @@ void loop() {
       }
     }
     else if (currentScreen == Screens::CHOOSE_MODE_SCREEN && choice == Screens::OFFLINE) {
+      screenManager.switchScreen(Screens::OFFLINE_POMODORO_SETTINGS_SCREEN);
         //TODO offline option
     }
     else if (currentScreen == Screens::ONLINE_SESSION_PLANER_SCREEN && choice == FIRST_OPTION) {

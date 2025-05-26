@@ -198,3 +198,17 @@ void drawMenu(const String options[], int numOfOptions, int selected, int startY
     drawTextWithBox(options[i], centerTextX(options[i], 2), startY + i * 30, 2, TFT_WHITE, boxColor);
   }
 }
+
+void drawValues(int values[], int valuesSize, const String options[], int optionsSize, int selected, int startY,  bool redraw) {
+  if (redraw) {
+    tft.fillScreen(TFT_BLACK);
+  }
+  for (int i = 0; i < valuesSize; i++) {
+    uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
+    drawTextWithBox(String(values[i], 10), 350, startY + i * 50, 2, TFT_WHITE, boxColor);
+  }
+  for (int i = valuesSize; i < optionsSize + valuesSize; i++) {
+    uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
+    drawTextWithBox(options[i - valuesSize], centerTextX(options[i - valuesSize], 2), startY + i * 50, 2, TFT_WHITE, boxColor);
+  }
+}

@@ -26,6 +26,9 @@ void Screens::displayCurrentScreen(bool update) {
   else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
     onlineSessionPlannerScreen(update);
   }
+  else if (currentScreen == OFFLINE_POMODORO_SETTINGS_SCREEN) {
+    offlinePomodoroSettingsScreen(update);
+  }
 }
 
 void Screens::chooseModeScreen(bool update) {
@@ -34,6 +37,41 @@ void Screens::chooseModeScreen(bool update) {
   String options[] = {"Online", "Offline"};
   displayTFTText(prompt, centerTextX(prompt, 3), 100, 3, TFT_BLUE, false);
   drawMenu(options, currentTotalOptions, selectedInputIndex, 200, update);
+}
+
+void Screens::handleValuesChange(int* value) {
+  if (*value < 0) return;
+  int rotaryValue = handleRotaryEncoder();
+  if (rotaryValue != 0) {
+    // if (*value + rotaryValue == 10 || *value + rotaryValue == 9) {
+    //   *value = (*value + rotaryValue) < 0 ? 0 : *value + rotaryValue;
+    //   clearTFTScreen();
+    // }
+    // else {
+      *value = (*value + rotaryValue) < 0 ? 0 : *value + rotaryValue;
+    // }
+  }
+}
+
+void Screens::offlinePomodoroSettingsScreen(bool update) {
+  currentTotalOptions = 6;
+  // int pomodoroLen = 30, shortBreakLen = 5, longBreakLen = 30, longBreakAfter = 4;
+  String options[] = {"Confirm", "Return"};
+  int optionsSize = sizeof(options) / sizeof(options[0]);
+  String prompt = "Settings";
+  String pomodoroLenStr = "Pomodoro Length: ";
+  String shortBreakLenStr = "Short Break Length: ";
+  String longBreakLenStr = "Long Break Length: ";
+  String longBreakAfterStr = "Long Break After: ";
+  displayTFTText(prompt, centerTextX(prompt, 3), 0, 3, TFT_BLUE, false);
+  displayTFTText(pomodoroLenStr, 0, 50, 2, TFT_BLUE, false);
+  displayTFTText(shortBreakLenStr, 0, 100, 2, TFT_BLUE, false);
+  displayTFTText(longBreakLenStr, 0, 150, 2, TFT_BLUE, false);
+  displayTFTText(longBreakAfterStr, 0, 200, 2, TFT_BLUE, false);
+  if (selectedInputIndex < valuesSize) {
+    handleValuesChange(&initValuesForOffline[selectedInputIndex]);
+  }
+  drawValues(initValuesForOffline, valuesSize, options, optionsSize, selectedInputIndex, 50, update);
 }
 
 void Screens::onlineSessionPlannerScreen(bool update) {
@@ -85,6 +123,18 @@ int Screens::getChoice() {
             return ONLINE;
         }
         return OFFLINE;
+    }
+    else if (currentScreen == OFFLINE_POMODORO_SETTINGS_SCREEN) {
+      if (selectedInputIndex < 4) {
+        return selectedInputIndex;
+      }
+      else if (selectedInputIndex == CONFIRM) {
+        return CONFIRM;
+      }
+      return RETURN;
+    }
+    else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
+
     }
 }
 
