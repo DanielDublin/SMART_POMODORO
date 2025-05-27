@@ -144,14 +144,9 @@ if (WiFi.hostByName("google.com", ip)) {
 
 }
 
-//#define WIFI_SSID "ICST"
-//#define WIFI_PASSWORD "arduino123"
 
- #define WIFI_SSID "MonsterPhone"
- #define WIFI_PASSWORD "ggbo4285"
-
-//#define WIFI_SSID "phone"
-//#define WIFI_PASSWORD "abc12345"
+#define WIFI_SSID "phone"
+#define WIFI_PASSWORD "abc12345"
 
 WiFiStatus setupWiFi2() {
     Serial.println("Setting up WiFi...");
