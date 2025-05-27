@@ -1,6 +1,6 @@
 /*
  * ESP32 POC Project
- * Integrates WiFi, Bluetooth, Firebase, OLED/TFT displays, buttons, rotary encoder and NeoPixel LEDs
+ * Integrates WiFi, Firebase, OLED/TFT displays, buttons, rotary encoder and NeoPixel LEDs
  */
 
 // Include all component modules
@@ -11,59 +11,29 @@
 #include "displays.h"
 #include "inputs.h"
 #include "neopixel_control.h"
-#include "bluetooth_audio.h"
 #include "audio_handler.h"
 #include "screens.h"
 
-// For Bluetooth audio control
-extern bool bluetoothControlMode;
-Screens screenManager;
+Audio audio;
+Screens screenManager(audio);
 WiFiStatus wifiStatus = WIFI_DISCONNECTED;
+
 void setup() {
   Serial.begin(115200);
   Serial.println("ESP32 POC Starting...");
-  screenManager.init();
-  // Initialize basic components
+
+  // Initialize basic components first
+  setupDisplays();  // Initialize displays first
   setupInputs();
-  setupDisplays();
-  
-  // Setup WiFi - this now runs the config portal in the background if needed
-  // WiFiStatus wifiStatus = setupWiFi2();
+  audio.begin();
+    
+  // Initialize screens after basic components
+  clearTFTScreen();
+  displayOLEDText("ESP32 POC Ready", 0, OLED_NEW_LINE*5, 1, true);  // Add OLED ready message
+  screenManager.init();  // Initialize screens properly
   
   // The rest of setup can continue while WiFi is being configured
-  setupBluetoothAudio();
-  setupI2S();
   setupNeoPixel();
-  
-  // // Wait for WiFi connection before setting up Firebase
-  // // if (waitForWiFiConnection(10000)) { // Wait up to 10 seconds
-  // if (wifiStatus == WIFI_CONNECTED){
-  //   syncTime();
-  //   FirebaseStatus firebaseStatus = setupFirebase();
-  //   delay(5000);
-  //   if (firebaseStatus == FIREBASE_STATUS_ERROR) {
-  //     displayTFTText("Firebase setup failed", 10, 10, 2, TFT_RED, true);
-  //     delay(5000);
-  //   }
-  //   // Display WiFi status on TFT
-  //   String networkName = getNetworkName();
-  //   displayTFTText("WiFi Status:", 10, 10, 2, TFT_GREEN, true);
-  //   displayTFTText("Connected to:", 10, 40, 2, TFT_WHITE, false);
-  //   displayTFTText(networkName, 10, 70, 3, TFT_CYAN, false);
-  // } else {
-  //   // Firebase setup skipped - will try again when WiFi connects
-  //   displayTFTText("Waiting for WiFi", 10, 10, 2, TFT_YELLOW, true);
-  //   displayTFTText("Configure via AP:", 10, 40, 2, TFT_WHITE, false);
-  //   displayTFTText(CONFIG_AP_SSID, 10, 70, 2, TFT_CYAN, false);
-  // }
-  
-  // // Final ready message
-  // displayTFTText("ESP32 POC Ready", 10, 100, 2, TFT_GREEN, false);
-  // displayOLEDText("ESP32 POC Ready", 0, OLED_NEW_LINE*5, 1, false);
-  
-  // Serial.println("Setup complete!");
-  // delay(1000);
-  // clearTFTScreen();
 }
 
 void loadDB() {
@@ -79,77 +49,103 @@ void loadDB() {
     }
 }
 
-void setupWifi() {
+void setupWifiEsp() {
   // Setup WiFi - this now runs the config portal in the background if needed
   displayTFTText("Connecting to Wifi", centerTextX("Connecting to Wifi", 3), 100, 3, TFT_BLUE, true);
-  WiFiStatus wifiStatus = setupWiFi2();
+  wifiStatus = setupWiFi2();
   if (wifiStatus == WIFI_CONNECTED) {
     syncTime();
     displayTFTText("Wifi Connected, getting data", centerTextX("Wifi Connected, getting data", 2), 100, 2, TFT_GREEN, true);
     loadDB();
     screenManager.switchScreen(Screens::ONLINE_SESSION_PLANER_SCREEN);
+  } else {
+    // Connection failed, show error and return to choose mode screen
+    displayTFTText("WiFi Connection Failed", centerTextX("WiFi Connection Failed", 2), 100, 2, TFT_RED, true);
+    delay(2000);  // Show error message for 2 seconds
+    screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
   }
 }
 
 void loop() {
   // Handle inputs
-  screenManager.displayCurrentScreen(false);
   handleButtons();
-  // int rotaryValue = handleRotaryEncoder();
-  // if (rotaryValue != 0) {
-  //   Serial.printf("value: %d\n", rotaryValue);
-  //   screenManager.updateselectedInputIndex(rotaryValue);
-  //   screenManager.displayCurrentScreen(true);
-  // }
-  // else {
-  //   screenManager.displayCurrentScreen(false);
-  // }
-  // Handle Firebase operations
-  if(isBlueButtonPressed()) {
+  int rotaryChange = handleRotaryEncoder();
+  bool needsUpdate = false;
+  static bool lastWhiteButtonState = false;  // Track last button state
+  static Screens::ScreenChoice lastScreen = Screens::CHOOSE_MODE_SCREEN;  // Track the last screen before timer
+  
+  // Handle blue button for menu navigation
+  if (isBlueButtonPressed()) {
     screenManager.updateselectedInputIndex(1);
-    screenManager.displayCurrentScreen(true);
+    needsUpdate = true;
   }
-  else{
-    screenManager.displayCurrentScreen(false);
+  
+  // Handle rotary encoder for value adjustments
+  if (rotaryChange != 0) {
+    Screens::ScreenChoice currentScreen = screenManager.getCurrentScreen();
+    if (currentScreen == Screens::OFFLINE_POMODORO_SETTINGS_SCREEN) {
+      screenManager.adjustSelectedValue(rotaryChange);
+      needsUpdate = true;
+    }
   }
-
-  if(isWhiteButtonPressed()) {  //maybe rotery button
+  
+  // Handle white button for selection
+  bool currentWhiteButton = isWhiteButtonPressed();
+  if (currentWhiteButton && !lastWhiteButtonState) {  // Only trigger on button press, not hold
     int choice = screenManager.getChoice();
-    Screens::Screen currentScreen = screenManager.getCurrentScreen();
-    if (currentScreen == Screens::CHOOSE_MODE_SCREEN && choice == Screens::ONLINE) {
-      if (wifiStatus != WIFI_CONNECTED) {
-        screenManager.switchScreen(Screens::WIFI_CONNECTION_SCREEN);
-        setupWifi();
+    if (choice != -1) {
+      Screens::ScreenChoice currentScreen = screenManager.getCurrentScreen();
+      
+      if (currentScreen == Screens::CHOOSE_MODE_SCREEN) {
+        if (choice == Screens::ONLINE) {
+          if (wifiStatus != WIFI_CONNECTED) {
+            screenManager.switchScreen(Screens::WIFI_CONNECTION_SCREEN);
+            setupWifiEsp();
+          } else {
+            screenManager.switchScreen(Screens::ONLINE_SESSION_PLANER_SCREEN);
+          }
+        } else if (choice == Screens::OFFLINE) {
+          screenManager.switchScreen(Screens::OFFLINE_POMODORO_SETTINGS_SCREEN);
+        }
       }
-    }
-    else if (currentScreen == Screens::CHOOSE_MODE_SCREEN && choice == Screens::OFFLINE) {
-      screenManager.switchScreen(Screens::OFFLINE_POMODORO_SETTINGS_SCREEN);
-        //TODO offline option
-    }
-    else if (currentScreen == Screens::ONLINE_SESSION_PLANER_SCREEN && choice == FIRST_OPTION) {
-      clearTFTScreen();
-      screenManager.switchScreen(Screens::CLOCK_SCREEN);
-      displayTFTText("THIS IS A CLOCK", centerTextX("THIS IS A CLOCK", 3), 100, 3, TFT_BLUE, false);
-        //TODO CLOCK
-    }
-    else if (currentScreen == Screens::ONLINE_SESSION_PLANER_SCREEN && choice == SECOND_OPTION) {
-      screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+      else if (currentScreen == Screens::OFFLINE_POMODORO_SETTINGS_SCREEN) {
+        if (choice == CONFIRM) {
+          audio.playConfirmation(0.7);
+          lastScreen = currentScreen;  // Remember we came from offline settings
+          screenManager.switchScreen(Screens::POMODORO_TIMER_SCREEN);
+        } else if (choice == RETURN) {
+          screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+        }
+      }
+      else if (currentScreen == Screens::ONLINE_SESSION_PLANER_SCREEN) {
+        if (choice == CONFIRM) {
+          audio.playConfirmation(0.7);
+          lastScreen = currentScreen;  // Remember we came from online planner
+          screenManager.switchScreen(Screens::POMODORO_TIMER_SCREEN);
+        } else if (choice == RETURN) {
+          screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+        }
+      }
+      else if (currentScreen == Screens::POMODORO_TIMER_SCREEN) {
+        if (choice == FIRST_OPTION) {  // Stop button
+          audio.playConfirmation(0.7);
+          // Return to the screen we came from
+          screenManager.switchScreen(lastScreen);
+        }
+      }
+      needsUpdate = true;
     }
   }
+  lastWhiteButtonState = currentWhiteButton;  // Update last button state
 
+  // Only update the screen when needed
+  Screens::ScreenChoice currentScreen = screenManager.getCurrentScreen();
+  if (currentScreen == Screens::POMODORO_TIMER_SCREEN || needsUpdate) {
+    screenManager.displayCurrentScreen(needsUpdate);
+  }
+  
+  // Handle Firebase operations
   firebaseLoop();
-  
-  // Switch mode with rotary button
-  if (isRotaryButtonPressed()) {
-    // toggleBluetoothControlMode();
-  }
-  
-  if (isBluetoothControlMode()) {
-    handleBluetoothControls();
-  } else {
-    // updateDisplayAnimations();
-    // updateNeoPixelEffects();
-  }
   
   // Small delay to prevent watchdog timer issues
   delay(10);

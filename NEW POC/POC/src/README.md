@@ -1,6 +1,6 @@
 # ESP32 Proof of Concept
 
-A modular ESP32 project demonstrating integration of WiFi, Bluetooth, Firebase, displays, buttons, rotary encoder, and NeoPixel LEDs.
+A modular ESP32 project demonstrating integration of WiFi, Firebase, displays, buttons, rotary encoder, and NeoPixel LEDs.
 
 ## Hardware Requirements
 
@@ -37,8 +37,8 @@ A modular ESP32 project demonstrating integration of WiFi, Bluetooth, Firebase, 
   - ROT_SW: GPIO 4 (Switch/Button)
 
 - **Push Buttons:**
-  - BUTTON_BLUE: GPIO 36
-  - BUTTON_WHITE: GPIO 39
+  - BUTTON_BLUE: GPIO 21
+  - BUTTON_WHITE: GPIO 22
 
 ### NeoPixel LED Strip:
 - LED_PIN: GPIO 33 (Data pin)
@@ -90,7 +90,7 @@ Connect to this network and navigate to 192.168.4.1 to configure your WiFi crede
 
 - `POC.ino`: Main Arduino sketch file
 - `config.h`: Pin definitions and configuration
-- `wifi_manager.h/cpp`: WiFi and Bluetooth functionality
+- `wifi_manager.h/cpp`: WiFi functionality
 - `firebase_handler.h/cpp`: Firebase integration
 - `displays.h/cpp`: OLED and TFT display handling
 - `inputs.h/cpp`: Buttons and rotary encoder handling

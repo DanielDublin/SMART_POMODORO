@@ -101,7 +101,7 @@ WiFiStatus setupWiFi() {
   if (!res) {
     return WIFI_CONNECT_FAILED;
   }
-  syncTime();
+  //syncTime();
   return WIFI_CONNECTED;
 }
 
@@ -124,12 +124,8 @@ String getLocalIP() {
   return WiFi.localIP().toString();
 }
 
-void setupBluetooth() {
-  Serial.println("Please use setupBluetoothAudio() from bluetooth_audio.cpp");
-}
-
 void syncTime() {
-  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  configTime(0, 0, "ntp.technion.ac.il", "pool.ntp.gov");
 
   Serial.print("Syncing time");
   time_t now = time(nullptr);
@@ -148,11 +144,26 @@ if (WiFi.hostByName("google.com", ip)) {
 
 }
 
-#define WIFI_SSID "CS_conference"
-#define WIFI_PASSWORD "openday2024"
+//#define WIFI_SSID "ICST"
+//#define WIFI_PASSWORD "arduino123"
+
+ #define WIFI_SSID "MonsterPhone"
+ #define WIFI_PASSWORD "ggbo4285"
+
+//#define WIFI_SSID "phone"
+//#define WIFI_PASSWORD "abc12345"
 
 WiFiStatus setupWiFi2() {
     Serial.println("Setting up WiFi...");
+    
+    // Set WiFi to low power mode to save memory
+    WiFi.setSleep(true);
+    // Disable power saving features that consume memory
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    
+    // Set lower TX power to save memory
+    esp_wifi_set_max_tx_power(8);
+    
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     unsigned long startAttemptTime = millis();
     const unsigned long WIFI_TIMEOUT_MS = 15000;
@@ -169,5 +180,9 @@ WiFiStatus setupWiFi2() {
     Serial.println("\nWiFi Connected");
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
+    
+    // Print memory info after connection
+    Serial.printf("Free Heap after WiFi: %d bytes\n", ESP.getFreeHeap());
+    
     return WIFI_CONNECTED;
 }
