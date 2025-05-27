@@ -29,6 +29,18 @@ class FirestoreService {
     await sessionsRef.add(sessionData);
   }
 
+  static Future<void> updateStudySession(String sessionId, Map<String, dynamic> sessionData) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception("No user logged in");
+
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('sessions')
+        .doc(sessionId)
+        .update(sessionData);
+  }
+
   static Future<List<Map<String, dynamic>>> getStudySessions() async {
     try {
       final user = _auth.currentUser;
@@ -49,5 +61,17 @@ class FirestoreService {
       print('Error getting study sessions: $e');
       rethrow;
     }
+  }
+
+  static Future<void> deleteStudySession(String sessionId) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception("No user logged in");
+
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('sessions')
+        .doc(sessionId)
+        .delete();
   }
 }
