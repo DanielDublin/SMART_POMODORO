@@ -247,6 +247,7 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
         onPressed: navigateToAddPlan,
         child: Icon(Icons.add),
       ),
+      showBackButton: false,
     );
   }
 }
