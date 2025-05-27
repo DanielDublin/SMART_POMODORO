@@ -32,6 +32,7 @@ class AuthService {
   }
 
   static Future<UserCredential> signInWithGoogle() async {
+    await _googleSignIn.signOut();
     final googleUser = await _googleSignIn.signIn();
     if (googleUser == null) throw Exception('Google sign-in aborted');
 

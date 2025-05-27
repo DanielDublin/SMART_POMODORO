@@ -29,19 +29,25 @@ class FirestoreService {
     await sessionsRef.add(sessionData);
   }
 
-  static Future<List<Map<String, dynamic>>?> getStudySessions() async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception("No user logged in");
+  static Future<List<Map<String, dynamic>>> getStudySessions() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw Exception("No user logged in");
 
-    final sessionsSnapshot = await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('sessions')
-        .orderBy('createdAt', descending: true)
-        .get();
+      final sessionsSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('sessions')
+          .get();
 
-    if (sessionsSnapshot.docs.isEmpty) return null;
-
-    return sessionsSnapshot.docs.map((doc) => doc.data()).toList();
+      return sessionsSnapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;  // Include document ID
+        return data;
+      }).toList();
+    } catch (e) {
+      print('Error getting study sessions: $e');
+      rethrow;
+    }
   }
 }

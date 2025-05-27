@@ -12,11 +12,11 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
   final _formKey = GlobalKey<FormState>();
   final _studySessionNameController = TextEditingController();
   DateTime? _examDeadline;
-  final _sessionsPerDayController = TextEditingController();
-  final _sessionLengthController = TextEditingController();
-  final _longBreakAfterController = TextEditingController();
-  final _longBreakDurationController = TextEditingController();
-  final _shortBreakDurationController = TextEditingController();
+  final _sessionsPerDayController = TextEditingController(text: '3');
+  final _sessionLengthController = TextEditingController(text: '25');
+  final _longBreakAfterController = TextEditingController(text: '4');
+  final _longBreakDurationController = TextEditingController(text: '20');
+  final _shortBreakDurationController = TextEditingController(text: '5');
 
   Future<void> _pickDate() async {
     final pickedDate = await showDatePicker(
@@ -48,18 +48,12 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Settings saved!')),
         );
+        Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to save: $e')),
         );
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Settings saved!')),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => StudyPlansListScreen()),
-      );
     }
   }
 
@@ -86,12 +80,19 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
             children: [
               TextFormField(
                 controller: _studySessionNameController,
-                decoration: InputDecoration(hintText: 'Session Name',
+                decoration: InputDecoration(
+                  hintText: 'Session Name',
                   border: InputBorder.none,
                   hintStyle: TextStyle(color: Colors.grey,),
                 ),
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a session name';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
               GestureDetector(
@@ -101,6 +102,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                     decoration: InputDecoration(
                       labelText: 'Exam Deadline',
                       hintText: 'DD/MM/YY',
+                      hintStyle: TextStyle(color: Colors.grey),
                     ),
                     controller: TextEditingController(
                       text: _examDeadline == null
