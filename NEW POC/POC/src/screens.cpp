@@ -39,6 +39,9 @@ void Screens::displayCurrentScreen(bool update) {
     if (currentScreen == CHOOSE_MODE_SCREEN) {
         chooseModeScreen(update);
     }
+    else if (currentScreen == QR_SCREEN) {
+      qrScreen(update);
+    }
     else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
         onlineSessionPlannerScreen(update);
     }
@@ -56,6 +59,12 @@ void Screens::chooseModeScreen(bool update) {
     drawMenu(options, currentTotalOptions, selectedInputIndex, 200, update);
     String prompt = "Choose Wi-Fi mode:";
     displayTFTText(prompt, centerTextX(prompt, 3), 100, 3, TFT_BLUE, false);
+}
+
+void Screens::qrScreen(bool update) {
+    currentTotalOptions = 0;
+    Serial.println("here");
+    drawQR();
 }
 
 void Screens::handleValuesChange(int* value) {

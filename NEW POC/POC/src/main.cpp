@@ -6,9 +6,9 @@
 // Include all component modules
 #include <Arduino.h>
 #include "config.h"
+#include "displays.h"
 #include "wifi_manager.h"
 #include "firebase_handler.h"
-#include "displays.h"
 #include "inputs.h"
 #include "neopixel_control.h"
 #include "audio_handler.h"
@@ -99,8 +99,9 @@ void loop() {
       if (currentScreen == Screens::CHOOSE_MODE_SCREEN) {
         if (choice == Screens::ONLINE) {
           if (wifiStatus != WIFI_CONNECTED) {
-            screenManager.switchScreen(Screens::WIFI_CONNECTION_SCREEN);
-            setupWifiEsp();
+            screenManager.switchScreen(Screens::QR_SCREEN);
+            // screenManager.switchScreen(Screens::WIFI_CONNECTION_SCREEN);
+            // setupWifiEsp();
           } else {
             screenManager.switchScreen(Screens::ONLINE_SESSION_PLANER_SCREEN);
           }

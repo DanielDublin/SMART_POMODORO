@@ -5,6 +5,7 @@
 #include "inputs.h"
 #include "firebase_handler.h"
 #include "audio_handler.h"
+#include "png_handler.h"
 
 
 #define FIRST_OPTION 0 //all in one enum or in define????????? fix in loop later
@@ -17,6 +18,7 @@ public:
     typedef enum ScreenChoice {
         CHOOSE_MODE_SCREEN,
         WIFI_CONNECTION_SCREEN,
+        QR_SCREEN,
         OFFLINE_POMODORO_SETTINGS_SCREEN,
         ONLINE_SESSION_PLANER_SCREEN,
         POMODORO_TIMER_SCREEN
@@ -31,6 +33,7 @@ public:
     void init();
     void displayCurrentScreen(bool update);
     void chooseModeScreen(bool update);
+    void qrScreen(bool update);
     void offlinePomodoroSettingsScreen(bool update);
     void onlineSessionPlannerScreen(bool update);
     void pomodoroTimerScreen(bool update);

@@ -8,6 +8,7 @@
 #include <Adafruit_SSD1306.h>
 #include "config.h"
 #include "Faces.h"  // Include the anime faces
+
 //LVGL is not used in this version, but can be added later if needed
 
 
@@ -55,6 +56,7 @@ int getDigitHeight(int textSize);
 // OLED Face functions
 void displayOLEDFace(FaceType face);
 void clearOLEDScreen();
+
 
 // External declarations for SPI instance
 extern SPIClass *vspi;
