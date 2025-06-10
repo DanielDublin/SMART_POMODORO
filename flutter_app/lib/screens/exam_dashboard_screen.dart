@@ -85,11 +85,11 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF4A74A5),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
-        title: Text('Exam Readiness Dashboard', style: TextStyle(color: Colors.white)),
+        title: Text('Statistics', style: TextStyle(color: Colors.black)),
         centerTitle: true,
       ),
       body: FutureBuilder<Map<String, dynamic>>(
@@ -235,14 +235,14 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                       CircleAvatar(
                         radius: 28,
                         backgroundColor: Colors.white,
-                        child: Icon(Icons.school, size: 40, color: Colors.blue), // Placeholder mascot
+                        child: Icon(Icons.school, size: 40, color: Colors.red), // Placeholder mascot
                       ),
                       SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'DASHBOARD',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Colors.black,
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                             letterSpacing: 1.2,
@@ -253,7 +253,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.amber[200],
+                          color: Colors.red[200],
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text('RANK: Owl', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -280,7 +280,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                               Text('$daysLeft Days Left', style: TextStyle(fontSize: 12)),
                             ],
                           ),
-                          progressColor: statusColor,
+                          progressColor: Colors.red,
                           backgroundColor: Colors.grey[200]!,
                           circularStrokeCap: CircularStrokeCap.round,
                         ),
@@ -335,7 +335,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                                 LineChartBarData(
                                   spots: idealLine,
                                   isCurved: false,
-                                  color: Colors.blue[200],
+                                  color: Colors.red[200],
                                   barWidth: 3,
                                   isStrokeCapRound: true,
                                   dotData: FlDotData(show: false),
@@ -344,7 +344,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                                 LineChartBarData(
                                   spots: actualLine,
                                   isCurved: false,
-                                  color: Colors.blue[800],
+                                  color: Colors.red[800],
                                   barWidth: 3,
                                   isStrokeCapRound: true,
                                   dotData: FlDotData(show: false),
@@ -356,10 +356,10 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.linear_scale, color: Colors.blue[200], size: 18),
-                            Text(' Ideal Pace   ', style: TextStyle(color: Colors.blue[200])),
-                            Icon(Icons.linear_scale, color: Colors.blue[800], size: 18),
-                            Text(' Actual Pace', style: TextStyle(color: Colors.blue[800])),
+                            Icon(Icons.linear_scale, color: Colors.red[200], size: 18),
+                            Text(' Ideal Pace   ', style: TextStyle(color: Colors.red[200])),
+                            Icon(Icons.linear_scale, color: Colors.red[800], size: 18),
+                            Text(' Actual Pace', style: TextStyle(color: Colors.red[800])),
                           ],
                         ),
                       ],
@@ -465,8 +465,11 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                           children: [
                             ElevatedButton.icon(
                               onPressed: () {},
-                              icon: Icon(Icons.file_download),
-                              label: Text('Export Data'),
+                              icon: Icon(Icons.file_download, color: Colors.white),
+                              label: Text('Export Data', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
                             ),
                             ElevatedButton.icon(
                               onPressed: () {
@@ -480,13 +483,19 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                                   ),
                                 );
                               },
-                              icon: Icon(Icons.list_alt),
-                              label: Text('View Sessions'),
+                              icon: Icon(Icons.list_alt, color: Colors.white),
+                              label: Text('View Sessions', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
                             ),
                             ElevatedButton.icon(
                               onPressed: () {},
-                              icon: Icon(Icons.emoji_events),
-                              label: Text('View Rewards'),
+                              icon: Icon(Icons.emoji_events, color: Colors.white),
+                              label: Text('View Rewards', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
                             ),
                           ],
                         ),
@@ -513,10 +522,10 @@ class _HeatmapCalendar extends StatelessWidget {
 
   Color _colorForCount(int count) {
     if (count == 0) return Colors.grey[200]!;
-    if (count == 1) return Colors.blue[100]!;
-    if (count == 2) return Colors.blue[300]!;
-    if (count == 3) return Colors.blue[500]!;
-    return Colors.blue[800]!;
+    if (count == 1) return Colors.red[100]!;
+    if (count == 2) return Colors.red[300]!;
+    if (count == 3) return Colors.red[500]!;
+    return Colors.red[800]!;
   }
 
   @override

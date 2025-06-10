@@ -17,16 +17,13 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
   final _formKey = GlobalKey<FormState>();
   final _studySessionNameController = TextEditingController();
   DateTime? _examDeadline;
-  final _sessionsPerDayController = TextEditingController(text: '3');
-  final _pomodoroLengthController = TextEditingController(text: '25');
-  final _shortBreakLengthController = TextEditingController(text: '5');
-  final _longBreakLengthController = TextEditingController(text: '30');
-  final _longBreakAfterController = TextEditingController(text: '4');
-  
-  // Calendar related variables
-  CalendarFormat _calendarFormat = CalendarFormat.month;
-  DateTime _focusedDay = DateTime.now();
+  int _sessionsPerDay = 4;
+  int _pomodoroLength = 25;
+  int _shortBreakLength = 5;
+  int _longBreakLength = 15;
+  int _longBreakAfter = 4;
   Set<DateTime> _selectedDays = {};
+  DateTime _focusedDay = DateTime.now();
   DateTime _firstDay = DateTime.now();
   DateTime _lastDay = DateTime.now().add(Duration(days: 365));
 
@@ -36,24 +33,94 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
     if (widget.existingPlan != null) {
       _studySessionNameController.text = widget.existingPlan!['sessionName'] ?? '';
       _examDeadline = (widget.existingPlan!['examDeadline'] as Timestamp).toDate();
-      _sessionsPerDayController.text = (widget.existingPlan!['sessionsPerDay'] ?? 3).toString();
-      _pomodoroLengthController.text = (widget.existingPlan!['pomodoroLength'] ?? 25).toString();
-      _shortBreakLengthController.text = (widget.existingPlan!['shortBreakLength'] ?? 5).toString();
-      _longBreakLengthController.text = (widget.existingPlan!['longBreakLength'] ?? 30).toString();
-      _longBreakAfterController.text = (widget.existingPlan!['longBreakAfter'] ?? 4).toString();
-      
-      // Convert selected days from Timestamps to DateTime
+      _sessionsPerDay = widget.existingPlan!['sessionsPerDay'] ?? 4;
+      _pomodoroLength = widget.existingPlan!['pomodoroLength'] ?? 25;
+      _shortBreakLength = widget.existingPlan!['shortBreakLength'] ?? 5;
+      _longBreakLength = widget.existingPlan!['longBreakLength'] ?? 15;
+      _longBreakAfter = widget.existingPlan!['longBreakAfter'] ?? 4;
       if (widget.existingPlan!['selectedDays'] != null) {
         _selectedDays = (widget.existingPlan!['selectedDays'] as List)
-            .map((timestamp) => (timestamp as Timestamp).toDate())
+            .map((timestamp) => DateTime((timestamp as Timestamp).toDate().year,
+                                          (timestamp as Timestamp).toDate().month,
+                                          (timestamp as Timestamp).toDate().day))
             .toSet();
       }
-      
       _lastDay = _examDeadline ?? DateTime.now().add(Duration(days: 365));
+
+      // Calculate _firstDay to include past selected dates if any
+      if (_selectedDays.isNotEmpty) {
+        final earliestSelectedDay = _selectedDays.reduce((a, b) => a.isBefore(b) ? a : b);
+        _firstDay = DateTime(earliestSelectedDay.year, earliestSelectedDay.month, 1);
+      } else {
+        _firstDay = DateTime(DateTime.now().year, DateTime.now().month, 1);
+      }
+      // Ensure _selectedDays are normalized in initState as well
+      _selectedDays = _selectedDays.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+      debugPrint('InitState - _selectedDays: $_selectedDays');
+      debugPrint('InitState - _firstDay: $_firstDay');
+      debugPrint('InitState - _examDeadline: $_examDeadline');
     }
   }
 
-  Future<void> _pickDate() async {
+  void _showNumberPicker({
+    required String title,
+    required int value,
+    required int min,
+    required int max,
+    required Function(int) onChanged,
+    String? unit,
+  }) {
+    int tempValue = value;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+        content: StatefulBuilder(
+          builder: (context, setStateDialog) => Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: Icon(Icons.remove_circle, color: Colors.red),
+                onPressed: () {
+                  setStateDialog(() {
+                    if (tempValue > min) tempValue--;
+                  });
+                },
+              ),
+              SizedBox(width: 8),
+              Text('$tempValue', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              if (unit != null) ...[
+                SizedBox(width: 4),
+                Text(unit, style: TextStyle(fontSize: 16)),
+              ],
+              SizedBox(width: 8),
+              IconButton(
+                icon: Icon(Icons.add_circle, color: Colors.red),
+                onPressed: () {
+                  setStateDialog(() {
+                    if (tempValue < max) tempValue++;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              onChanged(tempValue);
+              Navigator.pop(context);
+            },
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDatePicker() async {
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: _examDeadline ?? DateTime.now(),
@@ -63,10 +130,123 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
     if (pickedDate != null) {
       setState(() {
         _examDeadline = pickedDate;
-        _lastDay = pickedDate; // Update last day to exam deadline
-        _selectedDays.clear(); // Clear previous selections
+        _lastDay = pickedDate;
+        _selectedDays.clear();
       });
     }
+  }
+
+  void _showDaysPicker() async {
+    Set<DateTime> tempSelectedDays = Set.from(_selectedDays.map((d) => DateTime(d.year, d.month, d.day)));
+    DateTime tempFocusedDay = _focusedDay;
+
+    if (tempSelectedDays.isNotEmpty) {
+      final earliestSelectedDay = tempSelectedDays.reduce((a, b) => a.isBefore(b) ? a : b);
+      tempFocusedDay = DateTime(earliestSelectedDay.year, earliestSelectedDay.month, 1);
+    } else {
+      tempFocusedDay = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    }
+
+    debugPrint('ShowDaysPicker - tempSelectedDays before dialog: $tempSelectedDays');
+    debugPrint('ShowDaysPicker - tempFocusedDay before dialog: $tempFocusedDay');
+    debugPrint('ShowDaysPicker - _firstDay: $_firstDay');
+    debugPrint('ShowDaysPicker - _lastDay: $_lastDay');
+    debugPrint('ShowDaysPicker - _examDeadline: $_examDeadline');
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Select Days to Study', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: double.infinity,
+          height: 400,
+          child: StatefulBuilder(
+            builder: (context, setStateDialog) => TableCalendar(
+              firstDay: _firstDay,
+              lastDay: _lastDay,
+              focusedDay: tempFocusedDay,
+              selectedDayPredicate: (day) {
+                // Normalize the day passed by TableCalendar before checking containment
+                final normalizedDay = DateTime(day.year, day.month, day.day);
+                return tempSelectedDays.contains(normalizedDay);
+              },
+              onDaySelected: (selectedDay, focusedDay) {
+                setStateDialog(() {
+                  tempFocusedDay = focusedDay;
+                  final normalizedSelectedDay = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+                  if (tempSelectedDays.contains(normalizedSelectedDay)) {
+                    tempSelectedDays.remove(normalizedSelectedDay);
+                  } else {
+                    tempSelectedDays.add(normalizedSelectedDay);
+                  }
+                });
+              },
+              calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
+                cellMargin: EdgeInsets.all(6.0),
+                defaultTextStyle: TextStyle(color: Colors.black, fontSize: 14),
+                weekendTextStyle: TextStyle(color: Colors.black, fontSize: 14),
+                selectedDecoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                todayDecoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                disabledDecoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.3),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              headerStyle: HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextStyle: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+                leftChevronIcon: Icon(Icons.chevron_left, color: Colors.black),
+                rightChevronIcon: Icon(Icons.chevron_right, color: Colors.black),
+              ),
+              daysOfWeekStyle: DaysOfWeekStyle(
+                weekdayStyle: TextStyle(color: Colors.black, fontSize: 12),
+                weekendStyle: TextStyle(color: Colors.black, fontSize: 12),
+              ),
+              calendarFormat: CalendarFormat.month,
+              enabledDayPredicate: (day) {
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day); // Normalized today
+
+                // Disable days before today
+                if (day.isBefore(today)) {
+                  return false;
+                }
+
+                // Disable days after exam deadline
+                if (_examDeadline != null) {
+                  final deadlineDate = DateTime(_examDeadline!.year, _examDeadline!.month, _examDeadline!.day);
+                  if (day.isAfter(deadlineDate)) {
+                    return false;
+                  }
+                }
+                return true; // Enable all other days
+              },
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              setState(() {
+                _selectedDays = tempSelectedDays.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+                _focusedDay = tempFocusedDay;
+              });
+              Navigator.pop(context);
+            },
+            child: Text('Done'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _saveSettings() async {
@@ -77,32 +257,28 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
         );
         return;
       }
-
       if (_examDeadline == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Exam deadline is required')),
         );
         return;
       }
-
       if (_selectedDays.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Please select at least one study day')),
         );
         return;
       }
-
       final sessionData = {
         'sessionName': _studySessionNameController.text.trim(),
         'examDeadline': _examDeadline,
-        'sessionsPerDay': int.tryParse(_sessionsPerDayController.text) ?? 0,
+        'sessionsPerDay': _sessionsPerDay,
         'selectedDays': _selectedDays.map((date) => Timestamp.fromDate(date)).toList(),
-        'pomodoroLength': int.tryParse(_pomodoroLengthController.text) ?? 25,
-        'shortBreakLength': int.tryParse(_shortBreakLengthController.text) ?? 5,
-        'longBreakLength': int.tryParse(_longBreakLengthController.text) ?? 30,
-        'longBreakAfter': int.tryParse(_longBreakAfterController.text) ?? 4,
+        'pomodoroLength': _pomodoroLength,
+        'shortBreakLength': _shortBreakLength,
+        'longBreakLength': _longBreakLength,
+        'longBreakAfter': _longBreakAfter,
       };
-
       try {
         if (widget.existingPlan != null) {
           await FirestoreService.updateStudySession(widget.existingPlan!['id'], sessionData);
@@ -124,214 +300,189 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
     }
   }
 
+  String _daysSummary() {
+    if (_selectedDays.isEmpty) return 'No days selected';
+    final sorted = _selectedDays.toList()..sort();
+    return sorted.map((d) => DateFormat('dd/MM').format(d)).join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text(widget.existingPlan != null ? 'Edit Study Plan' : 'Study Planner Settings'),
+        backgroundColor: Colors.red,
+        elevation: 0,
+        title: Text('New Study Plan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        centerTitle: true,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: EdgeInsets.all(16),
-          children: [
-            // Session Name
-            TextFormField(
-              controller: _studySessionNameController,
-              decoration: InputDecoration(
-                hintText: 'Session Name *',
-                border: InputBorder.none,
-                hintStyle: TextStyle(color: Colors.grey),
-                errorStyle: TextStyle(color: Colors.red, fontSize: 16),
-              ),
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Session name is required';
-                }
-                return null;
-              },
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-            ),
-            SizedBox(height: 20),
-
-            // Plan Settings Section
-            Text(
-              'Plan Settings',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 10),
-
-            // Exam Deadline
-            GestureDetector(
-              onTap: _pickDate,
-              child: AbsorbPointer(
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'Exam Deadline *',
-                    hintText: 'DD/MM/YY',
-                    hintStyle: TextStyle(color: Colors.grey),
-                    errorStyle: TextStyle(color: Colors.red, fontSize: 16),
-                  ),
-                  controller: TextEditingController(
-                    text: _examDeadline == null
-                        ? ''
-                        : DateFormat('dd/MM/yy').format(_examDeadline!),
-                  ),
-                  validator: (value) {
-                    if (_examDeadline == null) {
-                      return 'Exam deadline is required';
-                    }
-                    return null;
-                  },
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
+      body: Center(
+        child: SingleChildScrollView(
+          child: Container(
+            width: 370,
+            margin: EdgeInsets.symmetric(vertical: 24),
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
                 ),
-              ),
+              ],
             ),
-
-            // Sessions Per Day
-            TextFormField(
-              controller: _sessionsPerDayController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Sessions Per Day'),
-            ),
-
-            // Calendar for selecting study days - only show if exam deadline is set
-            if (_examDeadline != null) ...[
-              Card(
-                child: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Days To Study (Before ${DateFormat('dd/MM/yy').format(_examDeadline!)})',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _studySessionNameController,
+                    decoration: InputDecoration(
+                      hintText: "Plan Name (e.g., 'Exam Prep - Calculus')",
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
                       ),
-                      TableCalendar(
-                        firstDay: _firstDay,
-                        lastDay: _lastDay,
-                        focusedDay: _focusedDay,
-                        calendarFormat: _calendarFormat,
-                        selectedDayPredicate: (day) => _selectedDays.contains(day),
-                        onDaySelected: (selectedDay, focusedDay) {
-                          setState(() {
-                            _focusedDay = focusedDay;
-                            if (_selectedDays.contains(selectedDay)) {
-                              _selectedDays.remove(selectedDay);
-                            } else {
-                              _selectedDays.add(selectedDay);
-                            }
-                          });
-                        },
-                        calendarStyle: CalendarStyle(
-                          selectedDecoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor,
-                            shape: BoxShape.circle,
-                          ),
-                          todayDecoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor.withOpacity(0.5),
-                            shape: BoxShape.circle,
-                          ),
-                          disabledDecoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.3),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        calendarBuilders: CalendarBuilders(
-                          markerBuilder: (context, date, events) {
-                            if (date.year == _examDeadline!.year &&
-                                date.month == _examDeadline!.month &&
-                                date.day == _examDeadline!.day) {
-                              return Positioned(
-                                bottom: 1,
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.red,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      date.day.toString(),
-                                      style: TextStyle(
-                                        color: Colors.red,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                            return null;
-                          },
-                        ),
-                        enabledDayPredicate: (day) => day.isBefore(_examDeadline!),
-                      ),
-                    ],
+                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
                   ),
-                ),
+                  SizedBox(height: 20),
+                  _SettingsTile(
+                    icon: Icons.calendar_today,
+                    label: 'Exam Deadline',
+                    value: _examDeadline == null ? 'DD/MM/YY' : DateFormat('dd/MM/yy').format(_examDeadline!),
+                    onTap: _showDatePicker,
+                  ),
+                  _SettingsTile(
+                    icon: Icons.calendar_month,
+                    label: 'Days to Study',
+                    value: _selectedDays.isEmpty ? 'No days selected' : '',
+                    customValueWidget: _selectedDays.isEmpty
+                        ? null
+                        : Container(
+                            constraints: BoxConstraints(maxWidth: 180),
+                            child: Text(
+                              _daysSummary(),
+                              style: TextStyle(fontSize: 16, color: Colors.red),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                    onTap: _examDeadline == null ? null : _showDaysPicker,
+                  ),
+                  _SettingsTile(
+                    icon: Icons.repeat,
+                    label: 'Sessions Per Day',
+                    value: '$_sessionsPerDay',
+                    onTap: () => _showNumberPicker(
+                      title: 'Sessions Per Day',
+                      value: _sessionsPerDay,
+                      min: 1,
+                      max: 10,
+                      onChanged: (v) => setState(() => _sessionsPerDay = v),
+                    ),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.timer,
+                    label: 'Session Length',
+                    value: '$_pomodoroLength minutes',
+                    onTap: () => _showNumberPicker(
+                      title: 'Session Length (minutes)',
+                      value: _pomodoroLength,
+                      min: 10,
+                      max: 90,
+                      onChanged: (v) => setState(() => _pomodoroLength = v),
+                      unit: 'min',
+                    ),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.repeat_on,
+                    label: 'Long Break After',
+                    value: '$_longBreakAfter sessions',
+                    onTap: () => _showNumberPicker(
+                      title: 'Long Break After (sessions)',
+                      value: _longBreakAfter,
+                      min: 2,
+                      max: 10,
+                      onChanged: (v) => setState(() => _longBreakAfter = v),
+                      unit: 'sessions',
+                    ),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.coffee,
+                    label: 'Long Break Duration',
+                    value: '$_longBreakLength minutes',
+                    onTap: () => _showNumberPicker(
+                      title: 'Long Break Duration (minutes)',
+                      value: _longBreakLength,
+                      min: 5,
+                      max: 60,
+                      onChanged: (v) => setState(() => _longBreakLength = v),
+                      unit: 'min',
+                    ),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.free_breakfast,
+                    label: 'Short Break Duration',
+                    value: '$_shortBreakLength minutes',
+                    onTap: () => _showNumberPicker(
+                      title: 'Short Break Duration (minutes)',
+                      value: _shortBreakLength,
+                      min: 1,
+                      max: 30,
+                      onChanged: (v) => setState(() => _shortBreakLength = v),
+                      unit: 'min',
+                    ),
+                  ),
+                  SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _saveSettings,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      child: Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
+                    ),
+                  ),
+                ],
               ),
-            ],
-
-            SizedBox(height: 20),
-
-            // Pomodoro Settings Section
-            Text(
-              'Pomodoro Settings',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 10),
-
-            // Pomodoro Settings Fields
-            TextFormField(
-              controller: _pomodoroLengthController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Pomodoro Length (minutes)'),
-            ),
-            TextFormField(
-              controller: _shortBreakLengthController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Short Break Length (minutes)'),
-            ),
-            TextFormField(
-              controller: _longBreakLengthController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Long Break Length (minutes)'),
-            ),
-            TextFormField(
-              controller: _longBreakAfterController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Long Break After (pomodoros)'),
-            ),
-
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _saveSettings,
-              child: Text('SAVE'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
-                backgroundColor: Colors.blue,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+  final Widget? customValueWidget;
+  const _SettingsTile({required this.icon, required this.label, this.value = '', this.onTap, this.customValueWidget});
 
   @override
-  void dispose() {
-    _studySessionNameController.dispose();
-    _sessionsPerDayController.dispose();
-    _pomodoroLengthController.dispose();
-    _shortBreakLengthController.dispose();
-    _longBreakLengthController.dispose();
-    _longBreakAfterController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.red, size: 28),
+      title: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+      trailing: customValueWidget ?? Text(value, style: TextStyle(fontSize: 16, color: Colors.red)),
+      onTap: onTap,
+      contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      tileColor: Colors.grey[100],
+      dense: true,
+    );
   }
 }

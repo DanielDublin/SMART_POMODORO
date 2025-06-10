@@ -8,6 +8,8 @@ import '../services/mock_data_service.dart';
 import 'study_planner_settings_screen.dart';
 import 'session_screen.dart';
 import 'exam_dashboard_screen.dart';
+import '../services/auth_service.dart';
+import 'login_screen.dart';
 
 class StudyPlansListScreen extends StatefulWidget {
   @override
@@ -112,234 +114,260 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScaffold(
-      title: 'My Study Plans',
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.red,
+        elevation: 0,
+        leading: null,
+        title: Text('My Study Plans', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.white),
+            onPressed: () async {
+              await AuthService.signOut();
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => LoginScreen()),
+              );
+            },
+          ),
+          Builder(
+            builder: (context) {
+              final user = FirebaseAuth.instance.currentUser;
+              return IconButton(
+                icon: user?.photoURL != null
+                    ? CircleAvatar(backgroundImage: NetworkImage(user!.photoURL!), radius: 16)
+                    : Icon(Icons.account_circle, color: Colors.white, size: 32),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text('Profile'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (user?.photoURL != null)
+                            CircleAvatar(backgroundImage: NetworkImage(user!.photoURL!), radius: 32),
+                          if (user?.displayName != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(user!.displayName!, style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          if (user?.email != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(user!.email!, style: TextStyle(color: Colors.grey[700])),
+                            ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('Close'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : error != null
               ? Center(child: Text('Error: $error'))
-              : Column(
-                  children: [
-                    if (studyPlans.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Generate mock session logs for your study plans',
-                                  style: Theme.of(context).textTheme.titleMedium,
-                                  textAlign: TextAlign.center,
-                                ),
-                                SizedBox(height: 12),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                  ),
-                                  onPressed: isGeneratingMockData ? null : generateMockData,
-                                  child: isGeneratingMockData
-                                      ? Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                              ),
-                                            ),
-                                            SizedBox(width: 12),
-                                            Text('Generating Mock Data...'),
-                                          ],
-                                        )
-                                      : Text('Generate Mock Session Logs'),
-                                ),
-                              ],
+              : studyPlans.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.menu_book, size: 80, color: Colors.grey[300]),
+                          SizedBox(height: 24),
+                          Text(
+                            'No study plans available.',
+                            style: TextStyle(fontSize: 18, color: Colors.blueGrey[700]),
+                          ),
+                          SizedBox(height: 32),
+                          SizedBox(
+                            width: 220,
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              icon: Icon(Icons.add, color: Colors.red),
+                              label: Text('Create New Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              onPressed: navigateToAddPlan,
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    Expanded(
-                      child: studyPlans.isEmpty
-                          ? Center(child: Text('No study plans available.'))
-                          : ListView.builder(
-                              itemCount: studyPlans.length,
-                              itemBuilder: (context, index) {
-                                final plan = studyPlans[index];
-                                return Dismissible(
-                                  key: Key(plan['id'] ?? index.toString()),
-                                  direction: DismissDirection.horizontal,
-                                  background: Container(
-                                    alignment: Alignment.centerLeft,
-                                    padding: EdgeInsets.only(left: 20),
-                                    color: Colors.blue,
-                                    child: isConfirmingEdit
-                                        ? SizedBox()
-                                        : Icon(
-                                            Icons.edit,
-                                            color: Colors.white,
-                                          ),
-                                  ),
-                                  secondaryBackground: Container(
-                                    alignment: Alignment.centerRight,
-                                    padding: EdgeInsets.only(right: 20),
-                                    color: Colors.red,
-                                    child: isConfirmingDelete
-                                        ? SizedBox()
-                                        : Icon(
-                                            Icons.delete,
-                                            color: Colors.white,
-                                          ),
-                                  ),
-                                  confirmDismiss: (direction) async {
-                                    if (direction == DismissDirection.startToEnd) {
-                                      setState(() {
-                                        isConfirmingEdit = true;
-                                      });
-                                      final bool? confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: Text('Edit Study Plan'),
-                                            content: Text('Do you want to edit this study plan?'),
-                                            actions: <Widget>[
-                                              TextButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    isConfirmingEdit = false;
-                                                  });
-                                                  Navigator.of(context).pop(false);
-                                                },
-                                                child: Text('Cancel'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    isConfirmingEdit = false;
-                                                  });
-                                                  Navigator.of(context).pop(true);
-                                                },
-                                                child: Text('Edit'),
-                                                style: TextButton.styleFrom(
-                                                  foregroundColor: Colors.blue,
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      if (confirm == true) {
+                    )
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: studyPlans.length,
+                            itemBuilder: (context, index) {
+                              final plan = studyPlans[index];
+                              return Dismissible(
+                                key: Key(plan['id'] ?? index.toString()),
+                                direction: DismissDirection.horizontal,
+                                background: Container(
+                                  alignment: Alignment.centerLeft,
+                                  padding: EdgeInsets.only(left: 20),
+                                  color: Colors.blue,
+                                  child: Icon(Icons.edit, color: Colors.white),
+                                ),
+                                secondaryBackground: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: EdgeInsets.only(right: 20),
+                                  color: Colors.red,
+                                  child: Icon(Icons.delete, color: Colors.white),
+                                ),
+                                confirmDismiss: (direction) async {
+                                  if (direction == DismissDirection.startToEnd) {
+                                    final bool? confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text('Edit Study Plan'),
+                                          content: Text('Do you want to edit this study plan?'),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                              child: Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                              child: Text('Edit'),
+                                              style: TextButton.styleFrom(foregroundColor: Colors.blue),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                    if (confirm == true) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => StudyPlannerSettingsScreen(existingPlan: plan),
+                                        ),
+                                      ).then((_) => fetchStudyPlans());
+                                    }
+                                    return false;
+                                  } else {
+                                    final bool? confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text('Delete Study Plan'),
+                                          content: Text('Are you sure you want to delete this study plan?'),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                              child: Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                              child: Text('Delete'),
+                                              style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                    if (confirm == true && plan['id'] != null) {
+                                      await FirestoreService.deleteStudySession(plan['id']);
+                                      await fetchStudyPlans();
+                                    }
+                                    return false;
+                                  }
+                                },
+                                child: Card(
+                                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 2,
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final currentUser = FirebaseAuth.instance.currentUser;
+                                      if (currentUser != null && plan['id'] != null && plan['id'] != '') {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => StudyPlannerSettingsScreen(
-                                              existingPlan: plan,
+                                            builder: (_) => ExamDashboardScreen(
+                                              uid: currentUser.uid,
+                                              planId: plan['id'],
                                             ),
                                           ),
-                                        ).then((_) => fetchStudyPlans());
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error: Missing user or plan ID')),
+                                        );
                                       }
-                                      return false;
-                                    } else {
-                                      setState(() {
-                                        isConfirmingDelete = true;
-                                      });
-                                      final bool? confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: Text('Delete Study Plan'),
-                                            content: Text('Are you sure you want to delete this study plan?'),
-                                            actions: <Widget>[
-                                              TextButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    isConfirmingDelete = false;
-                                                  });
-                                                  Navigator.of(context).pop(false);
-                                                },
-                                                child: Text('Cancel'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    isConfirmingDelete = false;
-                                                  });
-                                                  Navigator.of(context).pop(true);
-                                                },
-                                                child: Text('Delete'),
-                                                style: TextButton.styleFrom(
-                                                  foregroundColor: Colors.red,
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      return confirm ?? false;
-                                    }
-                                  },
-                                  onDismissed: (direction) {
-                                    if (direction == DismissDirection.endToStart && plan['id'] != null) {
-                                      deleteStudyPlan(plan['id']);
-                                    }
-                                  },
-                                  child: Card(
-                                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    child: InkWell(
-                                      onTap: () async {
-                                        final currentUser = FirebaseAuth.instance.currentUser;
-                                        if (currentUser != null && plan['id'] != null && plan['id'] != '') {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => ExamDashboardScreen(
-                                                uid: currentUser.uid,
-                                                planId: plan['id'],
-                                              ),
-                                            ),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Error: Missing user or plan ID')),
-                                          );
-                                        }
-                                      },
-                                      child: ListTile(
-                                        title: Text(
-                                          plan['sessionName'] ?? 'Unnamed Session',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        subtitle: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              'Deadline: ${formatDeadline(plan['examDeadline'])}',
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ],
-                                        ),
-                                        isThreeLine: true,
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: ListTile(
+                                      leading: Icon(Icons.menu_book, color: Colors.red, size: 32),
+                                      title: Text(
+                                        plan['sessionName'] ?? 'Unnamed Session',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                                       ),
+                                      subtitle: Text(
+                                        'Deadline: ${formatDeadline(plan['examDeadline'])}',
+                                        style: TextStyle(color: Colors.blueGrey[700]),
+                                      ),
+                                      trailing: Icon(Icons.arrow_forward_ios, color: Colors.red),
                                     ),
                                   ),
-                                );
-                              },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        SizedBox(
+                          width: 220,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            icon: Icon(Icons.add, color: Colors.red),
+                            label: Text('Create New Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
                             ),
+                            onPressed: navigateToAddPlan,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                      ],
                     ),
-                  ],
-                ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: navigateToAddPlan,
-        child: Icon(Icons.add),
-      ),
-      showBackButton: false,
+    );
+  }
+}
+
+class _NavBarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _NavBarItem({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white),
+        SizedBox(height: 2),
+        Text(label, style: TextStyle(color: Colors.white, fontSize: 12)),
+      ],
     );
   }
 }

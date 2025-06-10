@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../screens/login_screen.dart';
-import '../screens/settings_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class CustomScaffold extends StatelessWidget {
@@ -28,13 +27,6 @@ class CustomScaffold extends StatelessWidget {
     );
   }
 
-  void _openSettings(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => SettingsScreen()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -48,10 +40,6 @@ class CustomScaffold extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ) : null,
         actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () => _openSettings(context),
-          ),
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () => _logout(context),
@@ -94,9 +82,13 @@ class CustomScaffold extends StatelessWidget {
                       ),
                       if (user != null)
                         TextButton(
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.pop(context);
-                            _logout(context);
+                            await AuthService.signOut();
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => LoginScreen()),
+                            );
                           },
                           child: Text('Sign Out'),
                           style: TextButton.styleFrom(

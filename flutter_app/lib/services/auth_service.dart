@@ -31,10 +31,10 @@ class AuthService {
     }
   }
 
-  static Future<UserCredential> signInWithGoogle() async {
+  static Future<UserCredential?> signInWithGoogle() async {
     await _googleSignIn.signOut();
     final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) throw Exception('Google sign-in aborted');
+    if (googleUser == null) return null;
 
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
@@ -61,7 +61,7 @@ class AuthService {
         // });
       }
     }
-  return userCredential;
+    return userCredential;
   }
 
   static Future<void> signOut() async {
