@@ -19,28 +19,40 @@ void setFirebaseError(const String& error) {
     displayOLEDText("FB Error: " + error, 0, OLED_NEW_LINE*4, 1, true);
 }
 
+void printMemoryInfo() {
+    Serial.printf("Free Heap: %d bytes\n", ESP.getFreeHeap());
+    Serial.printf("Minimum Free Heap: %d bytes\n", ESP.getMinFreeHeap());
+    Serial.printf("Maximum Alloc Heap: %d bytes\n", ESP.getMaxAllocHeap());
+}
+
 FirebaseStatus setupFirebase() {
     Serial.println("Setting up Firebase...");
     displayOLEDText("Firebase Setup...", 0, OLED_NEW_LINE*0, 1, true);
-    // displayTFTText("Firebase Setup...", 10, 10, 1, TFT_WHITE, true);
     
-    // Configure Firebase
+    printMemoryInfo();  // Print initial memory state
+    
+    // Configure Firebase with minimal memory usage
     config.api_key = FIREBASE_API_KEY;
     config.token_status_callback = tokenStatusCallback;
     config.time_zone = 3;
+    
+    // Set low memory options
+    fbdo.setBSSLBufferSize(4096, 1024);  // Reduce SSL buffer size
+    fbdo.setResponseSize(1024);  // Reduce response buffer size
+    
+    printMemoryInfo();  // Print memory state after config
+    
     // Attempt Firebase authentication
     displayOLEDText("Auth...", 0, OLED_NEW_LINE*1, 1, false);
-    // displayTFTText("Auth...", 10, 40, 1, TFT_YELLOW, false);
     Serial.println("Attempting Firebase authentication...");
+    
     if (Firebase.signUp(&config, &auth, "", "")) {
         Serial.println("Firebase Setup - Auth OK");
         displayOLEDText("Auth: OK", 0, OLED_NEW_LINE*1, 1, false);
-        // displayTFTText("Auth: OK", 10, 40, 1, TFT_GREEN, false);
         firebaseInitialized = true;
     } else {
         String error = String(config.signer.signupError.message.c_str());
         displayOLEDText("Auth: FAILED", 0, OLED_NEW_LINE*1, 1, false);
-        // displayTFTText("Auth FAILED: " + error, 10, 40, 1, TFT_RED, false);
         Serial.print("Firebase Setup - Auth FAILED, error: ");
         Serial.println(config.signer.signupError.message.c_str());
         delay(5000);
@@ -48,28 +60,26 @@ FirebaseStatus setupFirebase() {
         return FIREBASE_STATUS_ERROR;
     }
 
-    // Initialize Firebase
+    printMemoryInfo();  // Print memory state after auth
+    
+    // Initialize Firebase with minimal memory settings
     Firebase.begin(&config, &auth);
     Firebase.reconnectNetwork(true);
     
     // Test connection
     if (!Firebase.ready()) {
         setFirebaseError("Connection Failed");
-        Serial.println("Firebase Setup - Connection FAILED, error: ");
+        Serial.println("Firebase Setup - Connection FAILED");
         displayOLEDText("Connection Failed", 0, OLED_NEW_LINE*1, 1, false);
-        // displayTFTText("Connection Failed", 10, 70, 1, TFT_RED, false);
         delay(5000);
         return FIREBASE_STATUS_ERROR;
     }
     return FIREBASE_STATUS_CONNECTED;
 }
 
-
-
 FirebaseStatus testFireBase() {
     Serial.println("Testing Firestore...");
     displayOLEDText("Testing Firestore...", 0, OLED_NEW_LINE*2, 1, false);
-    // displayTFTText("Testing Firestore...", 10, 70, 1, TFT_YELLOW, false);
 
     // Test write - will create or update
     String testDoc = "test_collection/test_doc";
@@ -163,10 +173,9 @@ String readFromFirestore(const String& path) {
     }
 
     displayOLEDText("Reading...", 0, OLED_NEW_LINE*3, 1, false);
-    // displayTFTText("Reading from: " + path, 10, 10, 1, TFT_YELLOW, true);
+    try{
     if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), "")) {
         displayOLEDText("Read OK: " + path, 0, OLED_NEW_LINE*3, 1, false);
-        // displayTFTText("Read OK: " + fbdo.payload(), 10, 40, 1, TFT_CYAN, false);
         return fbdo.payload().c_str();
     } else {
         String errorMsg = fbdo.errorReason();
@@ -175,6 +184,11 @@ String readFromFirestore(const String& path) {
         displayTFTText("HTTP Code: " + String(fbdo.httpCode()), 10, 70, 1, TFT_RED, false);
         return "";
     }
+} catch(const std::exception& e) {
+        Serial.printf("Exception: %s" , e.what());
+        return "";
+}
+
 }
 
 bool deleteFromFirestore(const String& path) {

@@ -21,7 +21,6 @@ WiFiStatus setupWiFi2();
 bool isWiFiConnected();
 String getLocalIP();
 String getNetworkName();
-void setupBluetooth();
 void syncTime();
 // New background monitoring functions
 void startWiFiMonitor();

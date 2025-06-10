@@ -39,7 +39,7 @@ void setupDisplays() {
   vspi = new SPIClass(VSPI);
   vspi->begin(TFT_SCLK, -1, TFT_MOSI, -1);    // VSPI for both displays
   
-  // Initialize OLED display
+  // Initialize OLED display with SPI
   if(!oled.begin(SSD1306_SWITCHCAPVCC)) {
     Serial.println(F("SSD1306 allocation failed"));
     return;
@@ -57,7 +57,7 @@ void setupDisplays() {
   digitalWrite(TFT_LED, LOW);  // Turn backlight off initially
   
   tft.init();
-  tft.setRotation(1); // Landscape mode
+  tft.setRotation(3); // Landscape mode
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);  // Set text color with background
   tft.setTextSize(1);
@@ -189,26 +189,123 @@ int centerTextX(const String& text, int textSize) {
   return (ILI_SCREEN_WIDTH - text.length() * charWidth) / 2;
 }
 
-void drawMenu(const String options[], int numOfOptions, int selected, int startY,  bool redraw) {
-  if (redraw) {
-    tft.fillScreen(TFT_BLACK);
-  }
+void drawMenu(const String options[], int numOfOptions, int selected, int startY, bool redraw) {
+  static int lastSelected = -1;  // Keep track of last selected item
+  
+  // Calculate maximum width needed for any option
+  int maxWidth = 0;
+  int textSize = 2;  // Text size used for menu items
   for (int i = 0; i < numOfOptions; i++) {
-    uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
-    drawTextWithBox(options[i], centerTextX(options[i], 2), startY + i * 30, 2, TFT_WHITE, boxColor);
+    int width = options[i].length() * 6 * textSize;  // 6 pixels per char at size 1
+    if (width > maxWidth) {
+      maxWidth = width;
+    }
+  }
+  
+  // Add padding for the box
+  maxWidth += 8;  // 4 pixels padding on each side
+  
+  for (int i = 0; i < numOfOptions; i++) {
+    // Only redraw if it's a full redraw or if this item's selection state has changed
+    if (redraw || i == selected || i == lastSelected) {
+      uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
+      int x = centerTextX(options[i], textSize);
+      
+      // Clear only the menu item area
+      tft.fillRect(x - 4, startY + i * 30 - 2, maxWidth, textSize * 8 + 4, TFT_BLACK);
+      
+      // Draw the text and box
+      drawTextWithBox(options[i], x, startY + i * 30, textSize, TFT_WHITE, boxColor);
+    }
+  }
+  
+  lastSelected = selected;  // Remember current selection for next time
+}
+
+void drawValues(int values[], int valuesSize, const String options[], int optionsSize, int selected, int startY, bool redraw) {
+  static int lastSelected = -1;  // Keep track of last selected item
+  
+  // Draw values
+  for (int i = 0; i < valuesSize; i++) {
+    if (redraw || i == selected || i == lastSelected) {
+      uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
+      // Clear only the value area
+      tft.fillRect(350 - 4, startY + i * 50 - 2, 100, 24, TFT_BLACK);
+      drawTextWithBox(String(values[i], 10), 350, startY + i * 50, 2, TFT_WHITE, boxColor);
+    }
+  }
+  
+  // Draw options
+  for (int i = valuesSize; i < optionsSize + valuesSize; i++) {
+    if (redraw || i == selected || i == lastSelected) {
+      uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
+      int x = centerTextX(options[i - valuesSize], 2);
+      // Clear only the option area
+      tft.fillRect(x - 4, startY + i * 50 - 2, options[i - valuesSize].length() * 12 + 8, 24, TFT_BLACK);
+      drawTextWithBox(options[i - valuesSize], x, startY + i * 50, 2, TFT_WHITE, boxColor);
+    }
+  }
+  
+  lastSelected = selected;  // Remember current selection for next time
+}
+
+void clearTFTArea(int x, int y, int width, int height) {
+  tft.fillRect(x, y, width, height, TFT_BLACK);
+}
+
+int getDigitWidth(int textSize) {
+  return 6 * textSize; // Each digit is approximately 6 pixels wide at size 1
+}
+
+int getDigitHeight(int textSize) {
+  return 8 * textSize; // Each digit is approximately 8 pixels high at size 1
+}
+
+void displayTFTDigit(char digit, int x, int y, int size, uint16_t color) {
+  // Clear just the area for this digit
+  clearTFTArea(x, y, getDigitWidth(size), getDigitHeight(size));
+  
+  // Display the new digit
+  tft.setTextSize(size);
+  tft.setTextColor(color);
+  tft.setCursor(x, y);
+  tft.print(digit);
+}
+
+void displayTFTTimer(const String& newTime, const String& oldTime, int x, int y, int size, uint16_t color) {
+  int digitWidth = getDigitWidth(size);
+  int colonWidth = digitWidth; // Colon takes approximately same width as a digit
+  
+  // Only update digits that have changed
+  for (int i = 0; i < newTime.length(); i++) {
+    if (oldTime.length() != newTime.length() || oldTime[i] != newTime[i]) {
+      int digitX = x + (i * digitWidth);
+      // If it's the colon position, adjust spacing
+      if (i > 1) {
+        digitX += colonWidth/2;
+      }
+      displayTFTDigit(newTime[i], digitX, y, size, color);
+    }
   }
 }
 
-void drawValues(int values[], int valuesSize, const String options[], int optionsSize, int selected, int startY,  bool redraw) {
-  if (redraw) {
-    tft.fillScreen(TFT_BLACK);
+void clearOLEDScreen() {
+  oled.clearDisplay();
+  oled.display();
+}
+
+void displayOLEDFace(FaceType face) {
+  clearOLEDScreen();
+  
+  switch(face) {
+    case FACE_FOCUSED:
+      oled.drawBitmap(0, 0, anime_face_girl_1, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
+      break;
+      
+    case FACE_TIRED:
+      oled.drawBitmap(0, 0, anime_face_girl_2, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
+      break;
   }
-  for (int i = 0; i < valuesSize; i++) {
-    uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
-    drawTextWithBox(String(values[i], 10), 350, startY + i * 50, 2, TFT_WHITE, boxColor);
-  }
-  for (int i = valuesSize; i < optionsSize + valuesSize; i++) {
-    uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
-    drawTextWithBox(options[i - valuesSize], centerTextX(options[i - valuesSize], 2), startY + i * 50, 2, TFT_WHITE, boxColor);
-  }
+  
+  oled.display();
 }
