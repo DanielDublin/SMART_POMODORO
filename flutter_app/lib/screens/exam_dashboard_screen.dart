@@ -539,6 +539,180 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                     ),
                   ),
                 ),
+                // Minutes Studied Bar Chart (Past Week)
+                Builder(
+                  builder: (context) {
+                    // --- Minutes Studied Bar Chart Data (Mon-Sun, past week) ---
+                    final nowDate = DateTime.now();
+                    final weekStart = nowDate.subtract(Duration(days: nowDate.weekday - 1)); // Monday
+                    final weekDates = List.generate(7, (i) => weekStart.add(Duration(days: i)));
+                    List<List<Map<String, dynamic>>> weekLogsByDay = List.generate(7, (i) => []);
+                    for (var l in logs) {
+                      final d = (l['startTime'] as Timestamp).toDate();
+                      for (int i = 0; i < 7; i++) {
+                        if (d.year == weekDates[i].year && d.month == weekDates[i].month && d.day == weekDates[i].day) {
+                          weekLogsByDay[i].add(l);
+                        }
+                      }
+                    }
+                    // --- Missed Sessions (planned study days in past week with 0 logs) ---
+                    List<DateTime> missedSessions = [];
+                    int studiedPlannedDays = 0;
+                    for (int i = 0; i < 7; i++) {
+                      final date = weekDates[i];
+                      final key = DateFormat('yyyy-MM-dd').format(date);
+                      final isPast = date.isBefore(DateTime(nowDate.year, nowDate.month, nowDate.day + 1));
+                      if (isPast && studyDayKeys.contains(key)) {
+                        if (weekLogsByDay[i].isEmpty) {
+                          missedSessions.add(date);
+                        } else {
+                          studiedPlannedDays++;
+                        }
+                      }
+                    }
+                    final barValues = [
+                      for (int i = 0; i < 7; i++)
+                        weekLogsByDay[i].fold<int>(0, (sum, l) => sum + _getInt(l['duration'], 0))
+                    ];
+                    final maxBar = barValues.isNotEmpty ? barValues.reduce((a, b) => a > b ? a : b) : 0;
+                    int touchedIndex = -1;
+                    return StatefulBuilder(
+                      builder: (context, setBarState) {
+                        return Column(
+                          children: [
+                            // Minutes Studied Bar Chart (Past Week)
+                            Card(
+                              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text('Minutes Studied (Past Week)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                                    SizedBox(height: 16),
+                                    SizedBox(
+                                      height: 180,
+                                      child: BarChart(
+                                        BarChartData(
+                                          alignment: BarChartAlignment.spaceAround,
+                                          maxY: (maxBar + 10).toDouble(),
+                                          barTouchData: BarTouchData(
+                                            enabled: true,
+                                            touchTooltipData: BarTouchTooltipData(
+                                              tooltipBgColor: Colors.red[100],
+                                              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                                                return BarTooltipItem(
+                                                  '${barValues[group.x]} min',
+                                                  TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16),
+                                                );
+                                              },
+                                            ),
+                                            touchCallback: (event, response) {
+                                              if (response != null && response.spot != null && event.isInterestedForInteractions) {
+                                                setBarState(() {
+                                                  touchedIndex = response.spot!.touchedBarGroupIndex;
+                                                });
+                                              } else {
+                                                setBarState(() {
+                                                  touchedIndex = -1;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                          titlesData: FlTitlesData(
+                                            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            bottomTitles: AxisTitles(
+                                              sideTitles: SideTitles(
+                                                showTitles: true,
+                                                getTitlesWidget: (double value, TitleMeta meta) {
+                                                  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                                  return Padding(
+                                                    padding: EdgeInsets.only(top: 8),
+                                                    child: Text(days[value.toInt()], style: TextStyle(fontWeight: FontWeight.w500)),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                          borderData: FlBorderData(show: false),
+                                          gridData: FlGridData(show: false),
+                                          barGroups: [
+                                            for (int i = 0; i < 7; i++)
+                                              BarChartGroupData(
+                                                x: i,
+                                                barRods: [
+                                                  BarChartRodData(
+                                                    toY: barValues[i].toDouble(),
+                                                    color: Colors.red,
+                                                    width: 22,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    borderSide: touchedIndex == i ? BorderSide(color: Colors.black, width: 2) : BorderSide.none,
+                                                  ),
+                                                ],
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    if (touchedIndex != -1)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8.0),
+                                        child: Center(
+                                          child: Text(
+                                            '${barValues[touchedIndex]} minutes studied',
+                                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 16),
+                                          ),
+                                        ),
+                                      ),
+                                    SizedBox(height: 12),
+                                    Center(child: Text('Total minutes studied each day', style: TextStyle(color: Colors.black54))),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Missed Sessions Card
+                            Card(
+                              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text('Missed Sessions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                                        SizedBox(width: 12),
+                                        Text('Studied planned days: $studiedPlannedDays', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.red)),
+                                      ],
+                                    ),
+                                    SizedBox(height: 10),
+                                    for (final missed in missedSessions)
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.warning, color: Colors.red, size: 20),
+                                            SizedBox(width: 8),
+                                            Text(DateFormat('yyyy-MM-dd').format(missed), style: TextStyle(fontWeight: FontWeight.bold)),
+                                          ],
+                                        ),
+                                      ),
+                                    if (missedSessions.isEmpty)
+                                      Text('No missed sessions this week', style: TextStyle(color: Colors.black54)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
                 SizedBox(height: 24),
               ],
             ),

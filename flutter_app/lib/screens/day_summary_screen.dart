@@ -192,48 +192,49 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
                                     textAlign: TextAlign.center,
                                   ),
                                   SizedBox(height: 16),
-                                  ElevatedButton.icon(
-                                    icon: Icon(Icons.add),
-                                    label: Text('Add Session'),
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                    onPressed: () async {
-                                      TimeOfDay? start = await showTimePicker(
-                                        context: context,
-                                        initialTime: TimeOfDay(hour: 8, minute: 0),
-                                      );
-                                      if (start != null) {
-                                        TimeOfDay? end = await showTimePicker(
+                                  if (!widget.selectedDate.isAfter(DateTime.now()))
+                                    ElevatedButton.icon(
+                                      icon: Icon(Icons.add),
+                                      label: Text('Add Session'),
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                      onPressed: () async {
+                                        TimeOfDay? start = await showTimePicker(
                                           context: context,
-                                          initialTime: TimeOfDay(hour: start.hour + 1, minute: start.minute),
+                                          initialTime: TimeOfDay(hour: 8, minute: 0),
                                         );
-                                        if (end != null) {
-                                          final startTime = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day, start.hour, start.minute);
-                                          final endTime = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day, end.hour, end.minute);
-                                          if (endTime.isAfter(startTime)) {
-                                            final duration = endTime.difference(startTime).inMinutes;
-                                            await FirebaseFirestore.instance
-                                              .collection('users')
-                                              .doc(widget.uid)
-                                              .collection('session_logs')
-                                              .add({
-                                                'sessionPlanId': widget.planId,
-                                                'sessionType': 'study',
-                                                'startTime': Timestamp.fromDate(startTime),
-                                                'endTime': Timestamp.fromDate(endTime),
-                                                'duration': duration,
+                                        if (start != null) {
+                                          TimeOfDay? end = await showTimePicker(
+                                            context: context,
+                                            initialTime: TimeOfDay(hour: start.hour + 1, minute: start.minute),
+                                          );
+                                          if (end != null) {
+                                            final startTime = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day, start.hour, start.minute);
+                                            final endTime = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day, end.hour, end.minute);
+                                            if (endTime.isAfter(startTime)) {
+                                              final duration = endTime.difference(startTime).inMinutes;
+                                              await FirebaseFirestore.instance
+                                                .collection('users')
+                                                .doc(widget.uid)
+                                                .collection('session_logs')
+                                                .add({
+                                                  'sessionPlanId': widget.planId,
+                                                  'sessionType': 'study',
+                                                  'startTime': Timestamp.fromDate(startTime),
+                                                  'endTime': Timestamp.fromDate(endTime),
+                                                  'duration': duration,
+                                                });
+                                              setState(() {
+                                                _dayData = _fetchDayData();
                                               });
-                                            setState(() {
-                                              _dayData = _fetchDayData();
-                                            });
-                                          } else {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('End time must be after start time')),
-                                            );
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(content: Text('End time must be after start time')),
+                                              );
+                                            }
                                           }
                                         }
-                                      }
-                                    },
-                                  ),
+                                      },
+                                    ),
                                 ],
                               ),
                             )
@@ -262,6 +263,22 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
                                             children: [
                                               Text('Session ${index + 1}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                               Text('Duration: $duration min', style: TextStyle(fontSize: 14, color: Colors.grey[700], fontWeight: FontWeight.w500)),
+                                              if (!widget.selectedDate.isAfter(DateTime.now()))
+                                                IconButton(
+                                                  icon: Icon(Icons.delete, color: Colors.red),
+                                                  tooltip: 'Delete Session',
+                                                  onPressed: () async {
+                                                    await FirebaseFirestore.instance
+                                                      .collection('users')
+                                                      .doc(widget.uid)
+                                                      .collection('session_logs')
+                                                      .doc(log['id'])
+                                                      .delete();
+                                                    setState(() {
+                                                      _dayData = _fetchDayData();
+                                                    });
+                                                  },
+                                                ),
                                             ],
                                           ),
                                           SizedBox(height: 12),

@@ -4,6 +4,9 @@ import '../screens/login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/exam_dashboard_screen.dart';
 import '../screens/day_summary_screen.dart';
+import '../screens/study_plans_list_screen.dart';
+import '../screens/mascot_screen.dart';
+import '../screens/summary_screen.dart';
 
 class CustomScaffold extends StatelessWidget {
   final String title;
@@ -59,9 +62,10 @@ class CustomScaffold extends StatelessWidget {
           // Home
           GestureDetector(
             onTap: () {
-              if (currentRoute != "/home") {
-                Navigator.pushReplacementNamed(context, "/home");
-              }
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => StudyPlansListScreen()),
+              );
             },
             child: _NavBarItem(
               icon: Icons.home,
@@ -71,38 +75,23 @@ class CustomScaffold extends StatelessWidget {
           // Mascot
           GestureDetector(
             onTap: () {
-              if (uid != null && planId != null) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ExamDashboardScreen(planId: planId!, uid: uid!),
-                  ),
-                );
-              }
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => MascotScreen()),
+              );
             },
             child: _NavBarItem(
               icon: Icons.emoji_emotions,
-              label: "Mascot",
+              label: "Rank",
             ),
           ),
           // Summary
           GestureDetector(
             onTap: () {
-              if (uid != null && planId != null) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DaySummaryScreen(
-                      uid: uid!,
-                      planId: planId!,
-                      selectedDate: DateTime.now(),
-                      expectedSessions: 1,
-                      pomodoroLength: 25,
-                      numberOfPomodoros: 4,
-                    ),
-                  ),
-                );
-              }
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => SummaryScreen()),
+              );
             },
             child: _NavBarItem(
               icon: Icons.assignment,
