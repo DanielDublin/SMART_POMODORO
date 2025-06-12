@@ -6,10 +6,14 @@ import '../widgets/custom_scaffold.dart';
 import '../services/firestore_service.dart';
 import '../services/mock_data_service.dart';
 import 'study_planner_settings_screen.dart';
-import 'session_screen.dart';
 import 'exam_dashboard_screen.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+
+enum SortOption {
+  deadline,
+  name
+}
 
 class StudyPlansListScreen extends StatefulWidget {
   @override
@@ -23,6 +27,39 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
   bool isConfirmingDelete = false;
   bool isConfirmingEdit = false;
   bool isGeneratingMockData = false;
+  String currentSortBy = 'deadline';
+  bool isAscending = true;
+
+  void sortStudyPlans(SortOption option) {
+    setState(() {
+      if (currentSortBy == option.toString().split('.').last) {
+        isAscending = !isAscending;
+      } else {
+        isAscending = true;
+      }
+      switch (option) {
+        case SortOption.deadline:
+          studyPlans.sort((a, b) {
+            final aDeadline = a['examDeadline'] as Timestamp?;
+            final bDeadline = b['examDeadline'] as Timestamp?;
+            if (aDeadline == null && bDeadline == null) return 0;
+            if (aDeadline == null) return 1;
+            if (bDeadline == null) return -1;
+            return isAscending ? aDeadline.compareTo(bDeadline) : bDeadline.compareTo(aDeadline);
+          });
+          currentSortBy = 'deadline';
+          break;
+        case SortOption.name:
+          studyPlans.sort((a, b) {
+            final aName = (a['sessionName'] ?? '').toString().toLowerCase();
+            final bName = (b['sessionName'] ?? '').toString().toLowerCase();
+            return isAscending ? aName.compareTo(bName) : bName.compareTo(aName);
+          });
+          currentSortBy = 'name';
+          break;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -40,6 +77,14 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
       final sessions = await FirestoreService.getStudySessions();
       setState(() {
         studyPlans = sessions;
+        switch (currentSortBy) {
+          case 'deadline':
+            sortStudyPlans(SortOption.deadline);
+            break;
+          case 'name':
+            sortStudyPlans(SortOption.name);
+            break;
+        }
         isLoading = false;
       });
     } catch (e) {
@@ -114,15 +159,63 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+    return CustomScaffold(
+      title: 'My Study Plans',
+      customAppBar: AppBar(
         backgroundColor: Colors.red,
         elevation: 0,
         leading: null,
         title: Text('My Study Plans', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
+          PopupMenuButton<SortOption>(
+            icon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.sort, color: Colors.white),
+                Icon(
+                  isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ],
+            ),
+            onSelected: sortStudyPlans,
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<SortOption>>[
+              PopupMenuItem<SortOption>(
+                value: SortOption.deadline,
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today, color: currentSortBy == 'deadline' ? Colors.red : Colors.grey),
+                    SizedBox(width: 8),
+                    Text('Sort by Deadline'),
+                    if (currentSortBy == 'deadline')
+                      Icon(
+                        isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                        color: Colors.red,
+                        size: 16,
+                      ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<SortOption>(
+                value: SortOption.name,
+                child: Row(
+                  children: [
+                    Icon(Icons.sort_by_alpha, color: currentSortBy == 'name' ? Colors.red : Colors.grey),
+                    SizedBox(width: 8),
+                    Text('Sort by Name'),
+                    if (currentSortBy == 'name')
+                      Icon(
+                        isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                        color: Colors.red,
+                        size: 16,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           IconButton(
             icon: Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
@@ -212,8 +305,17 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
                   : Column(
                       children: [
                         Expanded(
-                          child: ListView.builder(
+                          child: ReorderableListView.builder(
                             itemCount: studyPlans.length,
+                            onReorder: (oldIndex, newIndex) {
+                              setState(() {
+                                if (newIndex > oldIndex) {
+                                  newIndex -= 1;
+                                }
+                                final item = studyPlans.removeAt(oldIndex);
+                                studyPlans.insert(newIndex, item);
+                              });
+                            },
                             itemBuilder: (context, index) {
                               final plan = studyPlans[index];
                               return Dismissible(
@@ -315,7 +417,14 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
                                     },
                                     borderRadius: BorderRadius.circular(12),
                                     child: ListTile(
-                                      leading: Icon(Icons.menu_book, color: Colors.red, size: 32),
+                                      leading: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.drag_handle, color: Colors.grey),
+                                          SizedBox(width: 8),
+                                          Icon(Icons.menu_book, color: Colors.red, size: 32),
+                                        ],
+                                      ),
                                       title: Text(
                                         plan['sessionName'] ?? 'Unnamed Session',
                                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),

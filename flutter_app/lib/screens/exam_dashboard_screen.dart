@@ -4,7 +4,7 @@ import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
-import 'view_sessions_screen.dart';
+import 'day_summary_screen.dart';
 
 class ExamDashboardScreen extends StatefulWidget {
   final String planId;
@@ -20,6 +20,7 @@ class ExamDashboardScreen extends StatefulWidget {
 
 class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
   late Future<Map<String, dynamic>> _dashboardData;
+  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
   @override
   void initState() {
@@ -70,6 +71,40 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
     final logs = List<Map<String, dynamic>>.from(logsSnap.docs.map((doc) => doc.data() as Map<String, dynamic>).toList());
     print('Logs: $logs');
 
+    // Group logs by day
+    Map<String, List<Map<String, dynamic>>> logsByDay = {};
+    for (var log in logs) {
+      if (log['sessionType'] != null && log['sessionType'] != 'study') continue;
+      final d = (log['startTime'] as Timestamp).toDate();
+      final key = DateFormat('yyyy-MM-dd').format(d);
+      logsByDay.putIfAbsent(key, () => []).add(log);
+    }
+
+    // --- Consistency streak ---
+    int streak = 0;
+    DateTime streakDay = DateTime.now();
+    while (true) {
+      final key = DateFormat('yyyy-MM-dd').format(streakDay);
+      if ((logsByDay[key]?.isNotEmpty ?? false)) {
+        streak++;
+        streakDay = streakDay.subtract(Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+
+    // --- Weekly stats ---
+    final weekLogs = List<Map<String, dynamic>>.from(logs).where((l) {
+      final d = (l['startTime'] as Timestamp).toDate();
+      return DateTime.now().difference(d).inDays < 7;
+    }).toList();
+    final weekSessions = weekLogs.length;
+    final weekMinutes = weekLogs.fold<int>(0, (sum, l) => sum + _getInt(l['duration'], 0));
+
+    // Get study days (dates user planned to study)
+    final selectedDays = (plan['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toSet() ?? {};
+    Set<String> studyDayKeys = selectedDays.map((d) => DateFormat('yyyy-MM-dd').format(d)).toSet();
+
     return {
       'plan': plan,
       'logs': logs,
@@ -108,6 +143,9 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
           final longBreakAfter = snapshot.data!['longBreakAfter'];
           final planStart = snapshot.data!['planStart'];
 
+          final selectedDays = (plan['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toSet() ?? {};
+          Set<String> studyDayKeys = selectedDays.map((d) => DateFormat('yyyy-MM-dd').format(d)).toSet();
+
           if (logs.isEmpty) {
             return Center(
               child: Card(
@@ -138,76 +176,21 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
             );
           }
 
-          // --- Calculations ---
-          final now = DateTime.now();
-          final planStartDate = DateTime(planStart.year, planStart.month, planStart.day);
-          final examDeadlineDate = DateTime(examDeadline.year, examDeadline.month, examDeadline.day);
-          final todayDate = DateTime(now.year, now.month, now.day);
-          final lastDay = todayDate.isBefore(examDeadlineDate) ? todayDate : examDeadlineDate;
-          final plannedStudyDaysUpToToday = lastDay.difference(planStartDate).inDays + 1;
-          final totalDays = examDeadlineDate.difference(planStartDate).inDays + 1;
-          final daysLeft = max(0, examDeadlineDate.difference(todayDate).inDays);
-          final dailyStudyLength = pomodoroLength * longBreakAfter * sessionsPerDay;
-          final totalSessions = totalDays * sessionsPerDay;
-          final expectedSessionsByNow = plannedStudyDaysUpToToday * sessionsPerDay;
-          final actualSessions = logs.length;
-          final totalActualMinutes = logs.fold<int>(0, (sum, l) => sum + _getInt(l['duration'], 0));
-          final totalExpectedMinutes = dailyStudyLength * plannedStudyDaysUpToToday;
-          final readinessScore = totalExpectedMinutes == 0 ? 0 : (totalActualMinutes / totalExpectedMinutes * 100).clamp(0, 200);
-          String status;
-          IconData statusIcon;
-          Color statusColor;
-          if (readinessScore > 105) {
-            status = 'Ahead';
-            statusIcon = Icons.trending_up;
-            statusColor = Colors.green;
-          } else if (readinessScore >= 95) {
-            status = 'On Track';
-            statusIcon = Icons.check_circle;
-            statusColor = Colors.blue;
-          } else {
-            status = 'Behind';
-            statusIcon = Icons.warning;
-            statusColor = Colors.red;
-          }
-
-          // --- Burn-down chart data ---
-          List<FlSpot> idealLine = [];
-          List<FlSpot> actualLine = [];
-          int sessionsRemaining = totalSessions is int ? totalSessions : totalSessions.toInt();
-          Map<String, int> sessionsPerDayMap = {};
-          for (var l in logs) {
-            final d = (l['startTime'] as Timestamp).toDate();
+          // Group logs by day
+          Map<String, List<Map<String, dynamic>>> logsByDay = {};
+          for (var log in logs) {
+            if (log['sessionType'] != null && log['sessionType'] != 'study') continue;
+            final d = (log['startTime'] as Timestamp).toDate();
             final key = DateFormat('yyyy-MM-dd').format(d);
-            sessionsPerDayMap[key] = (sessionsPerDayMap[key] ?? 0) + 1;
+            logsByDay.putIfAbsent(key, () => []).add(log);
           }
-          for (int i = 0; i <= totalDays; i++) {
-            idealLine.add(FlSpot(i.toDouble(), (totalSessions - i * sessionsPerDay).toDouble().clamp(0, totalSessions.toDouble())));
-            // Actual: subtract sessions completed up to this day
-            final day = planStart.add(Duration(days: i));
-            final key = DateFormat('yyyy-MM-dd').format(day);
-            if (sessionsPerDayMap.containsKey(key)) {
-              sessionsRemaining -= sessionsPerDayMap[key]!;
-            }
-            actualLine.add(FlSpot(i.toDouble(), (sessionsRemaining.toDouble().clamp(0, totalSessions.toDouble())).toDouble()));
-          }
-
-          // --- Heatmap data ---
-          Map<String, int> heatmap = {};
-          for (var l in logs) {
-            final d = (l['startTime'] as Timestamp).toDate();
-            final key = DateFormat('yyyy-MM-dd').format(d);
-            heatmap[key] = (heatmap[key] ?? 0) + 1;
-          }
-          final firstDayOfMonth = DateTime(now.year, now.month, 1);
-          final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
 
           // --- Consistency streak ---
           int streak = 0;
-          DateTime streakDay = now;
+          DateTime streakDay = DateTime.now();
           while (true) {
             final key = DateFormat('yyyy-MM-dd').format(streakDay);
-            if ((heatmap[key] ?? 0) > 0) {
+            if ((logsByDay[key]?.isNotEmpty ?? false)) {
               streak++;
               streakDay = streakDay.subtract(Duration(days: 1));
             } else {
@@ -218,11 +201,193 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
           // --- Weekly stats ---
           final weekLogs = List<Map<String, dynamic>>.from(logs).where((l) {
             final d = (l['startTime'] as Timestamp).toDate();
-            return now.difference(d).inDays < 7;
+            return DateTime.now().difference(d).inDays < 7;
           }).toList();
-
           final weekSessions = weekLogs.length;
           final weekMinutes = weekLogs.fold<int>(0, (sum, l) => sum + _getInt(l['duration'], 0));
+
+          // --- Calculations ---
+          final now = DateTime.now();
+          final planStartDate = DateTime(planStart.year, planStart.month, planStart.day);
+          final examDeadlineDate = DateTime(examDeadline.year, examDeadline.month, examDeadline.day);
+          final todayDate = DateTime(now.year, now.month, now.day);
+
+          // Calculate expectedDay and number of selectedDays
+          final expectedDay = pomodoroLength * longBreakAfter * sessionsPerDay;
+          final selectedDaysList = selectedDays.toList();
+          final totalSelectedDays = selectedDaysList.length;
+          final totalExpectedMinutes = expectedDay * totalSelectedDays;
+          final totalActualMinutes = logs.fold<int>(0, (sum, l) => sum + _getInt(l['duration'], 0));
+          final readinessScore = totalExpectedMinutes == 0 ? 0 : (totalActualMinutes / totalExpectedMinutes * 100).clamp(0, 200);
+
+          // For current expected (to determine status): only consider selectedDays whose date is strictly less than today
+          final pastSelectedDays = selectedDaysList.where((d) => d.isBefore(todayDate)).length;
+          final currentExpectedMinutes = expectedDay * pastSelectedDays;
+          final currentReadinessScore = currentExpectedMinutes == 0
+              ? (totalActualMinutes > 0 ? 200 : 0)
+              : (totalActualMinutes / currentExpectedMinutes * 100).clamp(0, 200);
+
+          String status;
+          IconData statusIcon;
+          Color statusColor;
+          if (currentExpectedMinutes == 0) {
+            // If no study days have passed, any study means ahead
+            if (totalActualMinutes > 0) {
+              status = 'Ahead';
+              statusIcon = Icons.trending_up;
+              statusColor = Colors.green;
+            } else {
+              status = 'On Track';
+              statusIcon = Icons.check_circle;
+              statusColor = Colors.blue;
+            }
+          } else if (currentReadinessScore > 105) {
+            status = 'Ahead';
+            statusIcon = Icons.trending_up;
+            statusColor = Colors.green;
+          } else if (currentReadinessScore >= 95) {
+            status = 'On Track';
+            statusIcon = Icons.check_circle;
+            statusColor = Colors.blue;
+          } else {
+            status = 'Behind';
+            statusIcon = Icons.warning;
+            statusColor = Colors.red;
+          }
+
+          // --- Heatmap data ---
+          Map<String, int> heatmap = {};
+          for (var l in logs) {
+            final d = (l['startTime'] as Timestamp).toDate();
+            final key = DateFormat('yyyy-MM-dd').format(d);
+            heatmap[key] = (heatmap[key] ?? 0) + 1;
+          }
+          final firstDayOfMonth = DateTime(_calendarMonth.year, _calendarMonth.month, 1);
+          final lastDayOfMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 0);
+          int daysInMonth = lastDayOfMonth.day;
+          DateTime today = DateTime.now();
+
+          List<TableRow> calendarRows = [];
+          // Header
+          calendarRows.add(TableRow(
+            children: List.generate(7, (i) {
+              final weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i];
+              return Center(child: Text(weekday, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)));
+            }),
+          ));
+          int dayOffset = firstDayOfMonth.weekday % 7;
+          int dayNum = 1;
+          for (int w = 0; w < 6; w++) {
+            List<Widget> cells = [];
+            for (int d = 0; d < 7; d++) {
+              if (w == 0 && d < dayOffset) {
+                cells.add(Container());
+              } else if (dayNum <= daysInMonth) {
+                final date = DateTime(_calendarMonth.year, _calendarMonth.month, dayNum);
+                final key = DateFormat('yyyy-MM-dd').format(date);
+                final isPast = date.isBefore(DateTime(today.year, today.month, today.day));
+                final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
+                final isFuture = date.isAfter(DateTime(today.year, today.month, today.day));
+                final isStudyDay = studyDayKeys.contains(key);
+                double progress = 0;
+                if (logsByDay.containsKey(key)) {
+                  final logsForDay = logsByDay[key]!;
+                  final totalDuration = logsForDay.fold<num>(0, (sum, l) => sum + (l['duration'] ?? 0));
+                  final totalDurationInt = totalDuration.toInt();
+                  progress = expectedDay > 0 ? (totalDurationInt / expectedDay) : 0;
+                }
+                final hasUnplannedStudy = !isStudyDay && logsByDay.containsKey(key);
+                int unplannedMinutes = 0;
+                if (hasUnplannedStudy) {
+                  final logsForDay = logsByDay[key]!;
+                  unplannedMinutes = logsForDay.fold<num>(0, (sum, l) => sum + (l['duration'] ?? 0)).toInt();
+                }
+                Color bgColor = Colors.grey[200]!;
+                String progressText = '';
+                if (isStudyDay) {
+                  if (isPast) {
+                    if (progress >= 1.0) {
+                      bgColor = Colors.green[400]!;
+                      progressText = '100%';
+                    } else if (progress > 0) {
+                      bgColor = Colors.amber[400]!;
+                      progressText = '${(progress * 100).toInt()}%';
+                    } else {
+                      bgColor = Colors.red[300]!;
+                      progressText = '0%';
+                    }
+                  } else if (isFuture) {
+                    bgColor = Colors.grey[400]!; // darker gray for future study days
+                  } else if (isToday) {
+                    bgColor = Colors.red[100]!;
+                  }
+                } else if (hasUnplannedStudy) {
+                  bgColor = Colors.blue[400]!;
+                } else {
+                  bgColor = Colors.grey[200]!;
+                }
+                cells.add(GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DaySummaryScreen(
+                          uid: widget.uid,
+                          planId: widget.planId,
+                          selectedDate: date,
+                          expectedSessions: sessionsPerDay,
+                          pomodoroLength: pomodoroLength,
+                          numberOfPomodoros: longBreakAfter,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    margin: EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: isToday ? Border.all(color: Colors.red, width: 2) : null,
+                    ),
+                    height: 56,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('$dayNum', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        if (isStudyDay && isPast)
+                          Text('($progressText)', style: TextStyle(fontSize: 10, color: Colors.white)),
+                        if (hasUnplannedStudy)
+                          Text('$unplannedMinutes min', style: TextStyle(fontSize: 10, color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                ));
+                dayNum++;
+              } else {
+                cells.add(Container());
+              }
+            }
+            calendarRows.add(TableRow(children: cells));
+            if (dayNum > daysInMonth) break;
+          }
+
+          // Legend
+          Widget legend = Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 18,
+              runSpacing: 8,
+              children: [
+                _legendDotWithLabel(Colors.green[400]!, 'Completed'),
+                _legendDotWithLabel(Colors.amber[400]!, 'Partial'),
+                _legendDotWithLabel(Colors.red[300]!, 'Missed'),
+                _legendDotWithLabel(Colors.blue[400]!, 'Unplanned Study Day'),
+                _legendDotWithLabel(Colors.grey[400]!, 'Future Study Day'),
+                _legendDotWithLabel(Colors.grey[200]!, 'Idle Day'),
+              ],
+            ),
+          );
 
           return SingleChildScrollView(
             child: Column(
@@ -235,7 +400,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                       CircleAvatar(
                         radius: 28,
                         backgroundColor: Colors.white,
-                        child: Icon(Icons.school, size: 40, color: Colors.red), // Placeholder mascot
+                        child: Icon(Icons.school, size: 40, color: Colors.red),
                       ),
                       SizedBox(width: 12),
                       Expanded(
@@ -249,7 +414,6 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                           ),
                         ),
                       ),
-                      // Rank (optional)
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -277,7 +441,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text('${readinessScore.toInt()}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
-                              Text('$daysLeft Days Left', style: TextStyle(fontSize: 12)),
+                              Text('${totalSelectedDays - pastSelectedDays} Days Left', style: TextStyle(fontSize: 12)),
                             ],
                           ),
                           progressColor: Colors.red,
@@ -289,7 +453,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('On Track', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                              Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                               SizedBox(height: 8),
                               Row(
                                 children: [
@@ -305,105 +469,6 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                     ),
                   ),
                 ),
-                // Session Burn-down Chart
-                Card(
-                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        Text('Session Burn-down Chart', style: TextStyle(fontWeight: FontWeight.bold)),
-                        SizedBox(height: 12),
-                        SizedBox(
-                          height: 180,
-                          child: LineChart(
-                            LineChartData(
-                              gridData: FlGridData(show: false),
-                              titlesData: FlTitlesData(
-                                leftTitles: AxisTitles(
-                                  sideTitles: SideTitles(showTitles: true, reservedSize: 28),
-                                ),
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
-                                ),
-                                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              ),
-                              borderData: FlBorderData(show: false),
-                              lineBarsData: [
-                                LineChartBarData(
-                                  spots: idealLine,
-                                  isCurved: false,
-                                  color: Colors.red[200],
-                                  barWidth: 3,
-                                  isStrokeCapRound: true,
-                                  dotData: FlDotData(show: false),
-                                  dashArray: [8, 4],
-                                ),
-                                LineChartBarData(
-                                  spots: actualLine,
-                                  isCurved: false,
-                                  color: Colors.red[800],
-                                  barWidth: 3,
-                                  isStrokeCapRound: true,
-                                  dotData: FlDotData(show: false),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.linear_scale, color: Colors.red[200], size: 18),
-                            Text(' Ideal Pace   ', style: TextStyle(color: Colors.red[200])),
-                            Icon(Icons.linear_scale, color: Colors.red[800], size: 18),
-                            Text(' Actual Pace', style: TextStyle(color: Colors.red[800])),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Weekly Heatmap
-                Card(
-                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        Text('Weekly Performance', style: TextStyle(fontWeight: FontWeight.bold)),
-                        SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Column(
-                              children: [
-                                Text('$weekSessions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                                Text('Total\nSessions', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                            Column(
-                              children: [
-                                Text('$weekMinutes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                                Text('Total\nHours', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 16),
-                        // Heatmap calendar
-                        _HeatmapCalendar(
-                          heatmap: heatmap,
-                          firstDay: firstDayOfMonth,
-                          lastDay: lastDayOfMonth,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 // Key Stats Row
                 Card(
                   margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -413,12 +478,6 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Column(
-                          children: [
-                            Text('$actualSessions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                            Text('Total Sessions', style: TextStyle(fontSize: 12)),
-                          ],
-                        ),
                         Column(
                           children: [
                             Text('${(totalActualMinutes / 60).toStringAsFixed(1)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
@@ -441,64 +500,41 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                     ),
                   ),
                 ),
-                // Motivational Message & Actions
+                // Custom Calendar
                 Card(
-                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: EdgeInsets.all(16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        Text(
-                          status == 'Behind'
-                              ? "Let's catch up!"
-                              : 'Consistency is 🔥!',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: status == 'Behind' ? Colors.red : Colors.orange,
-                            fontSize: 16,
-                          ),
-                        ),
-                        SizedBox(height: 12),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            ElevatedButton.icon(
-                              onPressed: () {},
-                              icon: Icon(Icons.file_download, color: Colors.white),
-                              label: Text('Export Data', style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                              ),
-                            ),
-                            ElevatedButton.icon(
+                            IconButton(
+                              icon: Icon(Icons.chevron_left, color: Colors.red),
                               onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ViewSessionsScreen(
-                                      uid: widget.uid,
-                                      planId: widget.planId,
-                                    ),
-                                  ),
-                                );
+                                setState(() {
+                                  _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month - 1);
+                                });
                               },
-                              icon: Icon(Icons.list_alt, color: Colors.white),
-                              label: Text('View Sessions', style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                              ),
                             ),
-                            ElevatedButton.icon(
-                              onPressed: () {},
-                              icon: Icon(Icons.emoji_events, color: Colors.white),
-                              label: Text('View Rewards', style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                              ),
+                            Text(
+                              DateFormat('MMMM yyyy').format(_calendarMonth),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.chevron_right, color: Colors.red),
+                              onPressed: () {
+                                setState(() {
+                                  _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1);
+                                });
+                              },
                             ),
                           ],
                         ),
+                        Table(children: calendarRows),
+                        legend,
                       ],
                     ),
                   ),
@@ -570,4 +606,41 @@ class _HeatmapCalendar extends StatelessWidget {
     }
     return Table(children: rows);
   }
+}
+
+// --- Legend Dot Widget ---
+Widget _legendDot(Color color, String label) {
+  return Container(
+    width: 20,
+    height: 20,
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Center(
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+    ),
+  );
+}
+
+// Add this helper below _legendDot:
+Widget _legendDotWithLabel(Color color, String label) {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      SizedBox(width: 6),
+      Text(label, style: TextStyle(fontSize: 13)),
+    ],
+  );
 } 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../screens/login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../screens/exam_dashboard_screen.dart';
+import '../screens/day_summary_screen.dart';
 
 class CustomScaffold extends StatelessWidget {
   final String title;
@@ -9,6 +11,7 @@ class CustomScaffold extends StatelessWidget {
   final Color appBarColor;
   final Widget? floatingActionButton;
   final bool showBackButton;
+  final PreferredSizeWidget? customAppBar;
 
   const CustomScaffold({
     Key? key,
@@ -17,6 +20,7 @@ class CustomScaffold extends StatelessWidget {
     this.appBarColor = Colors.lightBlue,
     this.floatingActionButton,
     this.showBackButton = true,
+    this.customAppBar,
   }) : super(key: key);
 
   void _logout(BuildContext context) async {
@@ -31,14 +35,90 @@ class CustomScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
+    // Helper to get the current route name
+    String? currentRoute = ModalRoute.of(context)?.settings.name;
+
+    // Helper: get first planId and uid for Mascot/Summary (for demo, real app should pass these)
+    String? planId;
+    String? uid = user?.uid;
+    // TODO: In a real app, pass planId/uid from parent or via provider
+
+    // Bottom navigation bar widget
+    Widget bottomNavBar = Container(
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2)),
+        ],
+      ),
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Home
+          GestureDetector(
+            onTap: () {
+              if (currentRoute != "/home") {
+                Navigator.pushReplacementNamed(context, "/home");
+              }
+            },
+            child: _NavBarItem(
+              icon: Icons.home,
+              label: "Home",
+            ),
+          ),
+          // Mascot
+          GestureDetector(
+            onTap: () {
+              if (uid != null && planId != null) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ExamDashboardScreen(planId: planId!, uid: uid!),
+                  ),
+                );
+              }
+            },
+            child: _NavBarItem(
+              icon: Icons.emoji_emotions,
+              label: "Mascot",
+            ),
+          ),
+          // Summary
+          GestureDetector(
+            onTap: () {
+              if (uid != null && planId != null) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DaySummaryScreen(
+                      uid: uid!,
+                      planId: planId!,
+                      selectedDate: DateTime.now(),
+                      expectedSessions: 1,
+                      pomodoroLength: 25,
+                      numberOfPomodoros: 4,
+                    ),
+                  ),
+                );
+              }
+            },
+            child: _NavBarItem(
+              icon: Icons.assignment,
+              label: "Summary",
+            ),
+          ),
+        ],
+      ),
+    );
+
     return Scaffold(
-      appBar: AppBar(
+      appBar: customAppBar ?? AppBar(
         backgroundColor: appBarColor,
         title: Text(title),
-        leading: showBackButton ? IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ) : null,
+        automaticallyImplyLeading: showBackButton,
+        leading: showBackButton ? null : Container(),
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
@@ -121,6 +201,25 @@ class CustomScaffold extends StatelessWidget {
       ),
       body: body,
       floatingActionButton: floatingActionButton,
+      bottomNavigationBar: bottomNavBar,
+    );
+  }
+}
+
+class _NavBarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _NavBarItem({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white),
+        SizedBox(height: 2),
+        Text(label, style: TextStyle(color: Colors.white, fontSize: 12)),
+      ],
     );
   }
 }

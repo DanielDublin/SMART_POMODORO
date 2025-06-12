@@ -20,8 +20,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
   int _sessionsPerDay = 4;
   int _pomodoroLength = 25;
   int _shortBreakLength = 5;
-  int _longBreakLength = 15;
-  int _longBreakAfter = 4;
+  int _numberOfPomodoros = 4;
   Set<DateTime> _selectedDays = {};
   DateTime _focusedDay = DateTime.now();
   DateTime _firstDay = DateTime.now();
@@ -36,8 +35,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
       _sessionsPerDay = widget.existingPlan!['sessionsPerDay'] ?? 4;
       _pomodoroLength = widget.existingPlan!['pomodoroLength'] ?? 25;
       _shortBreakLength = widget.existingPlan!['shortBreakLength'] ?? 5;
-      _longBreakLength = widget.existingPlan!['longBreakLength'] ?? 15;
-      _longBreakAfter = widget.existingPlan!['longBreakAfter'] ?? 4;
+      _numberOfPomodoros = widget.existingPlan!['longBreakAfter'] ?? 4;
       if (widget.existingPlan!['selectedDays'] != null) {
         _selectedDays = (widget.existingPlan!['selectedDays'] as List)
             .map((timestamp) => DateTime((timestamp as Timestamp).toDate().year,
@@ -120,23 +118,96 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
     );
   }
 
-  void _showDatePicker() async {
-    final pickedDate = await showDatePicker(
+  void _showExamDeadlinePicker() async {
+    DateTime tempSelectedDay = _examDeadline ?? DateTime.now();
+    DateTime tempFocusedDay = tempSelectedDay;
+    DateTime firstDay = DateTime.now();
+    DateTime lastDay = DateTime(2100);
+
+    await showDialog(
       context: context,
-      initialDate: _examDeadline ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2100),
+      builder: (context) => AlertDialog(
+        title: Text('Select Exam Deadline', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: double.infinity,
+          height: 400,
+          child: StatefulBuilder(
+            builder: (context, setStateDialog) => TableCalendar(
+              firstDay: firstDay,
+              lastDay: lastDay,
+              focusedDay: tempFocusedDay,
+              selectedDayPredicate: (day) {
+                final normalizedDay = DateTime(day.year, day.month, day.day);
+                return normalizedDay == DateTime(tempSelectedDay.year, tempSelectedDay.month, tempSelectedDay.day);
+              },
+              onDaySelected: (selectedDay, focusedDay) {
+                setStateDialog(() {
+                  tempSelectedDay = selectedDay;
+                  tempFocusedDay = focusedDay;
+                });
+              },
+              calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
+                cellMargin: EdgeInsets.all(6.0),
+                defaultTextStyle: TextStyle(color: Colors.black, fontSize: 14),
+                weekendTextStyle: TextStyle(color: Colors.black, fontSize: 14),
+                selectedDecoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                todayDecoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                disabledDecoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.3),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              headerStyle: HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextStyle: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold, color: Colors.black),
+                leftChevronIcon: Icon(Icons.chevron_left, color: Colors.black),
+                rightChevronIcon: Icon(Icons.chevron_right, color: Colors.black),
+              ),
+              daysOfWeekStyle: DaysOfWeekStyle(
+                weekdayStyle: TextStyle(color: Colors.black, fontSize: 12),
+                weekendStyle: TextStyle(color: Colors.black, fontSize: 12),
+              ),
+              calendarFormat: CalendarFormat.month,
+              enabledDayPredicate: (day) {
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+                // Disable days before today
+                if (day.isBefore(today)) {
+                  return false;
+                }
+                return true;
+              },
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              setState(() {
+                _examDeadline = DateTime(tempSelectedDay.year, tempSelectedDay.month, tempSelectedDay.day);
+                _lastDay = _examDeadline!;
+                _selectedDays.clear();
+              });
+              Navigator.pop(context);
+            },
+            child: Text('Done'),
+          ),
+        ],
+      ),
     );
-    if (pickedDate != null) {
-      setState(() {
-        _examDeadline = pickedDate;
-        _lastDay = pickedDate;
-        _selectedDays.clear();
-      });
-    }
   }
 
-  void _showDaysPicker() async {
+  Future<void> _showDaysPicker() async {
     Set<DateTime> tempSelectedDays = Set.from(_selectedDays.map((d) => DateTime(d.year, d.month, d.day)));
     DateTime tempFocusedDay = _focusedDay;
 
@@ -145,6 +216,11 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
       tempFocusedDay = DateTime(earliestSelectedDay.year, earliestSelectedDay.month, 1);
     } else {
       tempFocusedDay = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    }
+
+    // Ensure tempFocusedDay is not before _firstDay
+    if (tempFocusedDay.isBefore(_firstDay)) {
+      tempFocusedDay = _firstDay;
     }
 
     debugPrint('ShowDaysPicker - tempSelectedDays before dialog: $tempSelectedDays');
@@ -276,8 +352,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
         'selectedDays': _selectedDays.map((date) => Timestamp.fromDate(date)).toList(),
         'pomodoroLength': _pomodoroLength,
         'shortBreakLength': _shortBreakLength,
-        'longBreakLength': _longBreakLength,
-        'longBreakAfter': _longBreakAfter,
+        'numberOfPomodoros': _numberOfPomodoros,
       };
       try {
         if (widget.existingPlan != null) {
@@ -357,7 +432,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                     icon: Icons.calendar_today,
                     label: 'Exam Deadline',
                     value: _examDeadline == null ? 'DD/MM/YY' : DateFormat('dd/MM/yy').format(_examDeadline!),
-                    onTap: _showDatePicker,
+                    onTap: _showExamDeadlinePicker,
                   ),
                   _SettingsTile(
                     icon: Icons.calendar_month,
@@ -390,10 +465,10 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                   ),
                   _SettingsTile(
                     icon: Icons.timer,
-                    label: 'Session Length',
+                    label: 'Pomodoro Length',
                     value: '$_pomodoroLength minutes',
                     onTap: () => _showNumberPicker(
-                      title: 'Session Length (minutes)',
+                      title: 'Pomodoro Length (minutes)',
                       value: _pomodoroLength,
                       min: 10,
                       max: 90,
@@ -403,28 +478,15 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                   ),
                   _SettingsTile(
                     icon: Icons.repeat_on,
-                    label: 'Long Break After',
-                    value: '$_longBreakAfter sessions',
+                    label: 'Number of Pomodoros',
+                    value: '$_numberOfPomodoros',
                     onTap: () => _showNumberPicker(
-                      title: 'Long Break After (sessions)',
-                      value: _longBreakAfter,
+                      title: 'Number of Pomodoros',
+                      value: _numberOfPomodoros,
                       min: 2,
                       max: 10,
-                      onChanged: (v) => setState(() => _longBreakAfter = v),
-                      unit: 'sessions',
-                    ),
-                  ),
-                  _SettingsTile(
-                    icon: Icons.coffee,
-                    label: 'Long Break Duration',
-                    value: '$_longBreakLength minutes',
-                    onTap: () => _showNumberPicker(
-                      title: 'Long Break Duration (minutes)',
-                      value: _longBreakLength,
-                      min: 5,
-                      max: 60,
-                      onChanged: (v) => setState(() => _longBreakLength = v),
-                      unit: 'min',
+                      onChanged: (v) => setState(() => _numberOfPomodoros = v),
+                      unit: 'pomodoros',
                     ),
                   ),
                   _SettingsTile(
