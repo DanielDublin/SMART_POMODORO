@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'study_plans_list_screen.dart';
 
 class SummaryScreen extends StatelessWidget {
   @override
@@ -10,7 +11,11 @@ class SummaryScreen extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => StudyPlansListScreen()),
+            (route) => false,
+          ),
         ),
       ),
       body: Center(
