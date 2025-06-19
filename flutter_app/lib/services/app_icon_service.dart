@@ -1,21 +1,27 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:io' show Platform;
 
 class AppIconService {
   static const platform = MethodChannel('com.iot.technion.smart_pomodoro/app_icon');
 
   static Future<void> setGloomyIcon() async {
+    if (!Platform.isIOS) return; // Only proceed on iOS
     try {
-      await platform.invokeMethod('setAlternateIcon', {'iconName': 'gloomy'});
-    } on PlatformException catch (e) {
-      print('Error changing app icon: ${e.message}');
+      await platform.invokeMethod('setAlternateIcon', 'gloomy');
+    } catch (e) {
+      debugPrint('Failed to set gloomy icon: $e');
+      // Silently fail on unsupported platforms
     }
   }
 
   static Future<void> setNormalIcon() async {
+    if (!Platform.isIOS) return; // Only proceed on iOS
     try {
-      await platform.invokeMethod('setAlternateIcon', {'iconName': null});
-    } on PlatformException catch (e) {
-      print('Error resetting app icon: ${e.message}');
+      await platform.invokeMethod('setAlternateIcon', null);
+    } catch (e) {
+      debugPrint('Failed to set normal icon: $e');
+      // Silently fail on unsupported platforms
     }
   }
 } 

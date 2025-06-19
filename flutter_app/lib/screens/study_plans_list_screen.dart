@@ -161,6 +161,7 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return "1";
 
+    // Calculate total minutes from all session logs
     final logsSnap = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
@@ -194,7 +195,18 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
         break;
       }
     }
-    return (rankIndex + 1).toString();
+    final userRank = (rankIndex + 1).toString();
+
+    // Update user document with new rank and total minutes
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .set({
+          'rank': userRank,
+          'totalStudyMinutes': totalMinutes,
+        }, SetOptions(merge: true));
+
+    return userRank;
   }
 
   String _getRankTitle(String rank) {

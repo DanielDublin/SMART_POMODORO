@@ -353,6 +353,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
         'pomodoroLength': _pomodoroLength,
         'shortBreakLength': _shortBreakLength,
         'numberOfPomodoros': _numberOfPomodoros,
+        'isActive': true,
       };
       try {
         if (widget.existingPlan != null) {

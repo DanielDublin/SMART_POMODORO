@@ -20,14 +20,53 @@ class _MascotScreenState extends State<MascotScreen> {
   Future<_RankData> _fetchRankData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('Not signed in');
+    
+    // Calculate total minutes from all session logs
     final logsSnap = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .collection('session_logs')
         .where('sessionType', isEqualTo: 'study')
         .get();
+    
     final logs = logsSnap.docs.map((doc) => doc.data()).toList();
-    final totalMinutes = logs.fold<int>(0, (sum, log) => sum + (log['duration'] is int ? log['duration'] as int : (log['duration'] is double ? (log['duration'] as double).toInt() : 0)));
+    final totalMinutes = logs.fold<int>(0, (sum, log) => 
+      sum + (log['duration'] is int ? log['duration'] as int : 
+            (log['duration'] is double ? (log['duration'] as double).toInt() : 0)));
+
+    // Calculate rank based on total minutes
+    final ranks = [
+      {'minutes': 0},      // Rank 1
+      {'minutes': 100},    // Rank 2
+      {'minutes': 300},    // Rank 3
+      {'minutes': 700},    // Rank 4
+      {'minutes': 1500},   // Rank 5
+      {'minutes': 3000},   // Rank 6
+      {'minutes': 5000},   // Rank 7
+      {'minutes': 8000},   // Rank 8
+      {'minutes': 12000},  // Rank 9
+      {'minutes': 20000},  // Rank 10
+    ];
+
+    int rankIndex = 0;
+    for (int i = 0; i < ranks.length; i++) {
+      if (totalMinutes >= ranks[i]['minutes']!) {
+        rankIndex = i;
+      } else {
+        break;
+      }
+    }
+    final userRank = (rankIndex + 1).toString();
+
+    // Update user document with new rank and total minutes
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .set({
+          'rank': userRank,
+          'totalStudyMinutes': totalMinutes,
+        }, SetOptions(merge: true));
+
     return _getRankData(totalMinutes);
   }
 

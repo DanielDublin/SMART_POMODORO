@@ -51,12 +51,27 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
     }
     final plan = planSnap.data()!;
     print('Plan data: $plan');
+
+    // Add isActive field if it doesn't exist
+    if (!plan.containsKey('isActive')) {
+      await planSnap.reference.update({'isActive': true});
+      plan['isActive'] = true;
+    }
+
     final examDeadline = (plan['examDeadline'] as Timestamp).toDate();
     final sessionsPerDay = _getInt(plan['sessionsPerDay'], 1);
     final sessionLength = _getInt(plan['sessionLength'], 25);
     final pomodoroLength = _getInt(plan['pomodoroLength'], 25);
     final longBreakAfter = _getInt(plan['longBreakAfter'], 4);
     final planStart = (plan['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now().subtract(Duration(days: 30));
+
+    // Fetch user data to get rank
+    final userSnap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.uid)
+        .get();
+    final userRank = userSnap.data()?['rank'] ?? '1';
+    final totalStudyMinutes = userSnap.data()?['totalStudyMinutes'] ?? 0;
 
     // Fetch session logs for this plan and user
     print('Fetching session logs for user: ${widget.uid}, plan: ${widget.planId}');
@@ -114,33 +129,9 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
       'pomodoroLength': pomodoroLength,
       'longBreakAfter': longBreakAfter,
       'planStart': planStart,
+      'userRank': userRank,
+      'totalStudyMinutes': totalStudyMinutes,
     };
-  }
-
-  // Update rank calculation to match mascot screen
-  String _calculateRank(num totalMinutes) {
-    final ranks = [
-      {'minutes': 0},      // Rank 1 - Seedling
-      {'minutes': 100},    // Rank 2 - Sprout
-      {'minutes': 300},    // Rank 3 - Apprentice
-      {'minutes': 700},    // Rank 4 - Scholar
-      {'minutes': 1500},   // Rank 5 - Researcher
-      {'minutes': 3000},   // Rank 6 - Strategist
-      {'minutes': 5000},   // Rank 7 - Focus Ninja
-      {'minutes': 8000},   // Rank 8 - Mind Master
-      {'minutes': 12000},  // Rank 9 - Study Sage
-      {'minutes': 20000},  // Rank 10 - Pomodoro Pro
-    ];
-
-    int rankIndex = 0;
-    for (int i = 0; i < ranks.length; i++) {
-      if (totalMinutes >= ranks[i]['minutes']!) {
-        rankIndex = i;
-      } else {
-        break;
-      }
-    }
-    return (rankIndex + 1).toString();
   }
 
   String _getRankTitle(String rank) {
@@ -183,6 +174,8 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
           final pomodoroLength = snapshot.data!['pomodoroLength'];
           final longBreakAfter = snapshot.data!['longBreakAfter'];
           final planStart = snapshot.data!['planStart'];
+          final userRank = snapshot.data!['userRank'];
+          final totalStudyMinutes = snapshot.data!['totalStudyMinutes'];
 
           final selectedDays = (plan['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toSet() ?? {};
           Set<String> studyDayKeys = selectedDays.map((d) => DateFormat('yyyy-MM-dd').format(d)).toSet();
@@ -447,7 +440,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset(
-                              'assets/mascots/rank${_calculateRank(totalActualMinutes)}.png',
+                              'assets/mascots/rank${userRank}.png',
                               height: 24,
                               width: 24,
                             ),
@@ -457,7 +450,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'RANK ${_calculateRank(totalActualMinutes)}',
+                                  'RANK ${userRank}',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.red[700],
@@ -465,7 +458,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                                   ),
                                 ),
                                 Text(
-                                  _getRankTitle(_calculateRank(totalActualMinutes)),
+                                  _getRankTitle(userRank),
                                   style: TextStyle(
                                     color: Colors.red[700],
                                     fontSize: 10,
@@ -646,11 +639,11 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                                     Text('Minutes Studied (Past Week)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
                                     SizedBox(height: 16),
                                     SizedBox(
-                                      height: 180,
+                                      height: 220,
                                       child: BarChart(
                                         BarChartData(
                                           alignment: BarChartAlignment.spaceAround,
-                                          maxY: (maxBar + 10).toDouble(),
+                                          maxY: (maxBar + 30).toDouble(),
                                           barTouchData: BarTouchData(
                                             enabled: true,
                                             touchTooltipData: BarTouchTooltipData(
@@ -681,11 +674,16 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                                             bottomTitles: AxisTitles(
                                               sideTitles: SideTitles(
                                                 showTitles: true,
+                                                reservedSize: 30,
                                                 getTitlesWidget: (double value, TitleMeta meta) {
                                                   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                                                   return Padding(
                                                     padding: EdgeInsets.only(top: 8),
-                                                    child: Text(days[value.toInt()], style: TextStyle(fontWeight: FontWeight.w500)),
+                                                    child: Text(
+                                                      days[value.toInt()],
+                                                      style: TextStyle(fontWeight: FontWeight.w500),
+                                                      textAlign: TextAlign.center,
+                                                    ),
                                                   );
                                                 },
                                               ),
