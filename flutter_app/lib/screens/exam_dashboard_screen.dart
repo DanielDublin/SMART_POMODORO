@@ -117,6 +117,47 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
     };
   }
 
+  // Update rank calculation to match mascot screen
+  String _calculateRank(num totalMinutes) {
+    final ranks = [
+      {'minutes': 0},      // Rank 1 - Seedling
+      {'minutes': 100},    // Rank 2 - Sprout
+      {'minutes': 300},    // Rank 3 - Apprentice
+      {'minutes': 700},    // Rank 4 - Scholar
+      {'minutes': 1500},   // Rank 5 - Researcher
+      {'minutes': 3000},   // Rank 6 - Strategist
+      {'minutes': 5000},   // Rank 7 - Focus Ninja
+      {'minutes': 8000},   // Rank 8 - Mind Master
+      {'minutes': 12000},  // Rank 9 - Study Sage
+      {'minutes': 20000},  // Rank 10 - Pomodoro Pro
+    ];
+
+    int rankIndex = 0;
+    for (int i = 0; i < ranks.length; i++) {
+      if (totalMinutes >= ranks[i]['minutes']!) {
+        rankIndex = i;
+      } else {
+        break;
+      }
+    }
+    return (rankIndex + 1).toString();
+  }
+
+  String _getRankTitle(String rank) {
+    switch (rank) {
+      case "10": return "Pomodoro Pro";
+      case "9": return "Study Sage";
+      case "8": return "Mind Master";
+      case "7": return "Focus Ninja";
+      case "6": return "Strategist";
+      case "5": return "Researcher";
+      case "4": return "Scholar";
+      case "3": return "Apprentice";
+      case "2": return "Sprout";
+      default: return "Seedling";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,37 +187,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
           final selectedDays = (plan['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toSet() ?? {};
           Set<String> studyDayKeys = selectedDays.map((d) => DateFormat('yyyy-MM-dd').format(d)).toSet();
 
-          if (logs.isEmpty) {
-            return Center(
-              child: Card(
-                margin: EdgeInsets.all(32),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.info_outline, size: 48, color: Colors.blueGrey),
-                      SizedBox(height: 16),
-                      Text(
-                        'No study sessions have been reported for this plan yet.',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Start your first Pomodoro to see your statistics here!',
-                        style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-
-          // Group logs by day
+          // Group logs by day (handle empty logs case)
           Map<String, List<Map<String, dynamic>>> logsByDay = {};
           for (var log in logs) {
             if (log['sessionType'] != null && log['sessionType'] != 'study') continue;
@@ -218,29 +229,26 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
           final totalSelectedDays = selectedDaysList.length;
           final totalExpectedMinutes = expectedDay * totalSelectedDays;
           final totalActualMinutes = logs.fold<int>(0, (sum, l) => sum + _getInt(l['duration'], 0));
-          final readinessScore = totalExpectedMinutes == 0 ? 0 : (totalActualMinutes / totalExpectedMinutes * 100).clamp(0, 200);
+          // Cap readiness score at 100%
+          final rawReadinessScore = totalExpectedMinutes == 0 ? 0 : (totalActualMinutes / totalExpectedMinutes * 100);
+          final readinessScore = rawReadinessScore.clamp(0, 100);
 
           // For current expected (to determine status): only consider selectedDays whose date is strictly less than today
           final pastSelectedDays = selectedDaysList.where((d) => d.isBefore(todayDate)).length;
           final currentExpectedMinutes = expectedDay * pastSelectedDays;
           final currentReadinessScore = currentExpectedMinutes == 0
-              ? (totalActualMinutes > 0 ? 200 : 0)
-              : (totalActualMinutes / currentExpectedMinutes * 100).clamp(0, 200);
+              ? (totalActualMinutes > 0 ? 100 : 0)
+              : (totalActualMinutes / currentExpectedMinutes * 100);
 
           String status;
           IconData statusIcon;
           Color statusColor;
-          if (currentExpectedMinutes == 0) {
-            // If no study days have passed, any study means ahead
-            if (totalActualMinutes > 0) {
-              status = 'Ahead';
-              statusIcon = Icons.trending_up;
-              statusColor = Colors.green;
-            } else {
-              status = 'On Track';
-              statusIcon = Icons.check_circle;
-              statusColor = Colors.blue;
-            }
+          
+          // Only show completed if raw score is >= 100
+          if (rawReadinessScore >= 100) {
+            status = 'Completed';
+            statusIcon = Icons.emoji_events;
+            statusColor = Colors.amber[700]!;
           } else if (currentReadinessScore > 105) {
             status = 'Ahead';
             statusIcon = Icons.trending_up;
@@ -340,7 +348,13 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                           numberOfPomodoros: longBreakAfter,
                         ),
                       ),
-                    );
+                    ).then((hasChanges) {
+                      if (hasChanges == true) {
+                        setState(() {
+                          _dashboardData = fetchDashboardData();
+                        });
+                      }
+                    });
                   },
                   child: Container(
                     margin: EdgeInsets.all(4),
@@ -357,7 +371,15 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                         if (isStudyDay && isPast)
                           Text('($progressText)', style: TextStyle(fontSize: 10, color: Colors.white)),
                         if (hasUnplannedStudy)
-                          Text('$unplannedMinutes min', style: TextStyle(fontSize: 10, color: Colors.white)),
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(horizontal: 2),
+                            child: Text(
+                              '$unplannedMinutes min',
+                              style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w500),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -415,12 +437,44 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                         ),
                       ),
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.red[200],
+                          color: Colors.red[50],
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red[100]!, width: 1),
                         ),
-                        child: Text('RANK: Owl', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              'assets/mascots/rank${_calculateRank(totalActualMinutes)}.png',
+                              height: 24,
+                              width: 24,
+                            ),
+                            SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'RANK ${_calculateRank(totalActualMinutes)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red[700],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  _getRankTitle(_calculateRank(totalActualMinutes)),
+                                  style: TextStyle(
+                                    color: Colors.red[700],
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -680,14 +734,14 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                               child: Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Text('Missed Sessions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                                        SizedBox(width: 12),
-                                        Text('Studied planned days: $studiedPlannedDays', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.red)),
-                                      ],
+                                    Text(
+                                      'Missed Sessions',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18
+                                      ),
                                     ),
                                     SizedBox(height: 10),
                                     for (final missed in missedSessions)
@@ -697,12 +751,18 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                                           children: [
                                             Icon(Icons.warning, color: Colors.red, size: 20),
                                             SizedBox(width: 8),
-                                            Text(DateFormat('yyyy-MM-dd').format(missed), style: TextStyle(fontWeight: FontWeight.bold)),
+                                            Text(
+                                              DateFormat('yyyy-MM-dd').format(missed),
+                                              style: TextStyle(fontWeight: FontWeight.bold)
+                                            ),
                                           ],
                                         ),
                                       ),
                                     if (missedSessions.isEmpty)
-                                      Text('No missed sessions this week', style: TextStyle(color: Colors.black54)),
+                                      Text(
+                                        'No missed sessions this week',
+                                        style: TextStyle(color: Colors.black54)
+                                      ),
                                   ],
                                 ),
                               ),

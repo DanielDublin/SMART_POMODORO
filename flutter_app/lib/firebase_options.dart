@@ -86,10 +86,10 @@ class DefaultFirebaseOptions {
   );
 
   static String getEnvVar(String entry) {
-  final value = dotenv.env[entry];
-  if (value == null || value.isEmpty) {
-  throw Exception('Environment variable $entry is not set in .env file');
-  }
-  return value;
+    final value = dotenv.env[entry];
+    if (value == null || value.isEmpty) {
+      throw Exception('Environment variable $entry is not set in .env file');
+    }
+    return value;
   }
 }

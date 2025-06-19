@@ -157,6 +157,61 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
     await fetchStudyPlans();
   }
 
+  Future<String> _calculateUserRank() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return "1";
+
+    final logsSnap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('session_logs')
+        .where('sessionType', isEqualTo: 'study')
+        .get();
+
+    final logs = logsSnap.docs.map((doc) => doc.data()).toList();
+    final totalMinutes = logs.fold<int>(0, (sum, log) => 
+      sum + (log['duration'] is int ? log['duration'] as int : 
+            (log['duration'] is double ? (log['duration'] as double).toInt() : 0)));
+
+    final ranks = [
+      {'minutes': 0},      // Rank 1
+      {'minutes': 100},    // Rank 2
+      {'minutes': 300},    // Rank 3
+      {'minutes': 700},    // Rank 4
+      {'minutes': 1500},   // Rank 5
+      {'minutes': 3000},   // Rank 6
+      {'minutes': 5000},   // Rank 7
+      {'minutes': 8000},   // Rank 8
+      {'minutes': 12000},  // Rank 9
+      {'minutes': 20000},  // Rank 10
+    ];
+
+    int rankIndex = 0;
+    for (int i = 0; i < ranks.length; i++) {
+      if (totalMinutes >= ranks[i]['minutes']!) {
+        rankIndex = i;
+      } else {
+        break;
+      }
+    }
+    return (rankIndex + 1).toString();
+  }
+
+  String _getRankTitle(String rank) {
+    switch (rank) {
+      case "10": return "Pomodoro Pro";
+      case "9": return "Study Sage";
+      case "8": return "Mind Master";
+      case "7": return "Focus Ninja";
+      case "6": return "Strategist";
+      case "5": return "Researcher";
+      case "4": return "Scholar";
+      case "3": return "Apprentice";
+      case "2": return "Sprout";
+      default: return "Seedling";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return CustomScaffold(
@@ -229,39 +284,63 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
           Builder(
             builder: (context) {
               final user = FirebaseAuth.instance.currentUser;
-              return IconButton(
-                icon: user?.photoURL != null
-                    ? CircleAvatar(backgroundImage: NetworkImage(user!.photoURL!), radius: 16)
-                    : Icon(Icons.account_circle, color: Colors.white, size: 32),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text('Profile'),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (user?.photoURL != null)
-                            CircleAvatar(backgroundImage: NetworkImage(user!.photoURL!), radius: 32),
-                          if (user?.displayName != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(user!.displayName!, style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                          if (user?.email != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(user!.email!, style: TextStyle(color: Colors.grey[700])),
-                            ),
-                        ],
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text('Close'),
-                        ),
-                      ],
+              return FutureBuilder<String>(
+                future: _calculateUserRank(),
+                builder: (context, snapshot) {
+                  final rank = snapshot.data ?? "1";
+                  return IconButton(
+                    icon: Image.asset(
+                      'assets/mascots/rank$rank.png',
+                      width: 32,
+                      height: 32,
                     ),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => FutureBuilder<String>(
+                          future: _calculateUserRank(),
+                          builder: (context, snapshot) {
+                            final rank = snapshot.data ?? "1";
+                            return AlertDialog(
+                              title: Text('Profile'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.asset(
+                                    'assets/mascots/rank$rank.png',
+                                    width: 64,
+                                    height: 64,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    _getRankTitle(rank),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red[700],
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  Divider(height: 24),
+                                  if (user?.displayName != null)
+                                    Text(user!.displayName!, style: TextStyle(fontWeight: FontWeight.bold)),
+                                  if (user?.email != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4.0),
+                                      child: Text(user!.email!, style: TextStyle(color: Colors.grey[700])),
+                                    ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: Text('Close'),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      );
+                    },
                   );
                 },
               );
