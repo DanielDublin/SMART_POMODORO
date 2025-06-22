@@ -6,7 +6,6 @@
 #include <time.h>               // For timestamp formatting
 #include <ArduinoJson.h>        // ArduinoJson v7
 #include <SPIFFS.h>             // For SPIFFS file storage
-#include <Adafruit_SSD1306.h>   // For OLED display
 
 // Firebase configuration
 #define FIREBASE_API_KEY ""
