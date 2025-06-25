@@ -1,221 +1,232 @@
+#include <Arduino.h>
 #include "firebase_handler.h"
-#include "config.h"
-#include "displays.h"
-#include <addons/TokenHelper.h>
+#include <WiFi.h>
+#include "wifi_manager.h"
+#include <addons/TokenHelper.h> // For token callback
+#include <time.h>               // For timestamp formatting
+#include <ArduinoJson.h>        // ArduinoJson v7
+#include <SPIFFS.h>             // For SPIFFS file storage
+
+
+// OLED display configuration
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Firebase objects
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-// Firebase state
-bool firebaseInitialized = false;
-String lastErrorMessage = "";
+// Device ID (MAC address)
+String deviceId;
 
-// Helper function to set error message
-void setFirebaseError(const String& error) {
-    lastErrorMessage = error;
-    displayTFTText("Firebase Error: " + error, 10, 10, 1, TFT_RED, true);
-    displayOLEDText("FB Error: " + error, 0, OLED_NEW_LINE*4, 1, true);
-}
+// Paired user UID and user_id
+String pairedUid = "";
+String pairedUserId = "";
 
-void printMemoryInfo() {
-    Serial.printf("Free Heap: %d bytes\n", ESP.getFreeHeap());
-    Serial.printf("Minimum Free Heap: %d bytes\n", ESP.getMinFreeHeap());
-    Serial.printf("Maximum Alloc Heap: %d bytes\n", ESP.getMaxAllocHeap());
-}
+// Pairing state
+PairingState pairingState = PairingState::UNPAIRED;
 
-FirebaseStatus setupFirebase() {
-    Serial.println("Setting up Firebase...");
-    displayOLEDText("Firebase Setup...", 0, OLED_NEW_LINE*0, 1, true);
-    
-    printMemoryInfo();  // Print initial memory state
-    
-    // Configure Firebase with minimal memory usage
+// Polling interval (milliseconds)
+const unsigned long POLLING_INTERVAL = 5000;
+unsigned long lastPollTime = 0;
+
+void initFirebase() {
+    if (timeSyncState != TimeSyncState::SYNCED || wifiState != WiFiState::CONNECTED) {
+        Serial.println("Cannot init Firebase: WiFi or time not ready");
+        return;
+    }
+
+    if (pairingState != PairingState::UNPAIRED) {
+        Serial.println("Firebase already initialized or pairing in progress");
+        return;
+    }
+
+    deviceId = WiFi.macAddress();
+    deviceId.replace(":", "-");
+    Serial.print("Device ID: ");
+    Serial.println(deviceId);
+
+    Serial.println("Configuring Firebase...");
     config.api_key = FIREBASE_API_KEY;
+    auth.user.email = FIREBASE_USER_EMAIL;
+    auth.user.password = FIREBASE_USER_PASSWORD;
     config.token_status_callback = tokenStatusCallback;
-    config.time_zone = 3;
-    
-    // Set low memory options
-    fbdo.setBSSLBufferSize(4096, 1024);  // Reduce SSL buffer size
-    fbdo.setResponseSize(1024);  // Reduce response buffer size
-    
-    printMemoryInfo();  // Print memory state after config
-    
-    // Attempt Firebase authentication
-    displayOLEDText("Auth...", 0, OLED_NEW_LINE*1, 1, false);
-    Serial.println("Attempting Firebase authentication...");
-    
-    if (Firebase.signUp(&config, &auth, "", "")) {
-        Serial.println("Firebase Setup - Auth OK");
-        displayOLEDText("Auth: OK", 0, OLED_NEW_LINE*1, 1, false);
-        firebaseInitialized = true;
-    } else {
-        String error = String(config.signer.signupError.message.c_str());
-        displayOLEDText("Auth: FAILED", 0, OLED_NEW_LINE*1, 1, false);
-        Serial.print("Firebase Setup - Auth FAILED, error: ");
-        Serial.println(config.signer.signupError.message.c_str());
-        delay(5000);
-        setFirebaseError("Auth Failed: " + error);
-        return FIREBASE_STATUS_ERROR;
-    }
+    config.timeout.serverResponse = 10000;
+    config.timeout.wifiReconnect = 10000;
 
-    printMemoryInfo();  // Print memory state after auth
-    
-    // Initialize Firebase with minimal memory settings
-    Firebase.begin(&config, &auth);
+    fbdo.setBSSLBufferSize(4096, 1024);
+    fbdo.setResponseSize(2048);
     Firebase.reconnectNetwork(true);
-    
-    // Test connection
+
+    displayOLEDText("Starting Firebase.begin...", 0, OLED_NEW_LINE*0, 1, true);
+
+    int retries = 3;
+    while (retries-- > 0 && !Firebase.ready()) {
+        Firebase.begin(&config, &auth);
+        if (Firebase.ready()) {
+            displayOLEDText("Firebase.begin completed", 0, OLED_NEW_LINE*1, 1, false);
+            displayOLEDText("User sign-in successful", 0, OLED_NEW_LINE*2, 1, false);
+            break;
+        }
+        Serial.println("Firebase.begin failed, retrying...");
+        Serial.print("Error: ");
+        Serial.println(fbdo.errorReason());
+        delay(2000);
+    }
+
     if (!Firebase.ready()) {
-        setFirebaseError("Connection Failed");
-        Serial.println("Firebase Setup - Connection FAILED");
-        displayOLEDText("Connection Failed", 0, OLED_NEW_LINE*1, 1, false);
-        delay(5000);
-        return FIREBASE_STATUS_ERROR;
+        displayOLEDText("Firebase.begin failed after retries", 0, OLED_NEW_LINE*3, 1, false);
+        return;
     }
-    return FIREBASE_STATUS_CONNECTED;
+
+    displayOLEDText("Creating pairing request...", 0, OLED_NEW_LINE*0, 1, true);
+    FirebaseJson json;
+
+    time_t now = time(nullptr);
+    char timestamp[30];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+    if (strlen(timestamp) == 0) {
+        Serial.println("Warning: Timestamp generation failed, using fallback");
+        strcpy(timestamp, "2025-06-22T00:00:00Z"); // Fallback timestamp
+    }
+
+    json.set("fields/status/stringValue", "pending");
+    json.set("fields/deviceId/stringValue", deviceId);
+    json.set("fields/createdAt/timestampValue", String(timestamp));
+
+    String path = "pairing_requests/" + deviceId;
+    if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), json.raw())) {
+        Serial.println("Pairing request created in Firestore");
+        drawQR();
+        pairingState = PairingState::PENDING;
+        lastPollTime = millis();
+    } else {
+        Serial.print("Failed to create pairing request: ");
+        Serial.println(fbdo.errorReason());
+    }
 }
 
-FirebaseStatus testFireBase() {
-    Serial.println("Testing Firestore...");
-    displayOLEDText("Testing Firestore...", 0, OLED_NEW_LINE*2, 1, false);
-
-    // Test write - will create or update
-    String testDoc = "test_collection/test_doc";
-    FirebaseJson payload;
-    payload.set("fields/test_value/stringValue", "Test Data " + String(millis()));
-
-    // Step 1: Check document state
-    Serial.println("Checking document state... ");
-    displayTFTText("Checking document state...", 10, 100, 1, TFT_CYAN, false);
-    if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", testDoc.c_str(), "")) {
-        String payloadMsg = "Doc exists: " + fbdo.payload();
-        Serial.println("Doc exists: " + fbdo.payload());
-        displayTFTText(payloadMsg, 10, 130, 1, TFT_CYAN, false);
-    } else {
-        String errorMsg = "Doc read failed: " + fbdo.errorReason();
-        Serial.println("Doc read failed: " + fbdo.errorReason());
-        displayTFTText(errorMsg, 10, 130, 1, TFT_RED, false);
+void handlePairedUserId(String userId) {
+    // Save user_id to SPIFFS
+    File file = SPIFFS.open("/paired_user_id.txt", FILE_WRITE);
+    if (!file) {
+        Serial.println("Failed to open file for writing");
+        return;
     }
-
-    // Step 2: Try patch without mask
-    displayTFTText("Patch without mask...", 10, 160, 1, TFT_YELLOW, false);
-    if (!Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "", testDoc.c_str(), payload.raw(), "")) {
-        String errorMsg = "Patch failed: " + fbdo.errorReason();
-        displayTFTText("Payload: " + String(payload.raw()), 10, 190, 1, TFT_RED, false);
-        displayTFTText("HTTP Code: " + String(fbdo.httpCode()), 10, 220, 1, TFT_RED, false);
-        displayTFTText("Error: " + errorMsg, 10, 250, 1, TFT_RED, false);
-        displayOLEDText("Write Test: FAILED", 0, OLED_NEW_LINE*1, 1, false);
-        delay(5000);
-        return FIREBASE_STATUS_ERROR;
+    if (file.print(userId)) {
+        Serial.println("user_id saved to SPIFFS");
     } else {
-        displayTFTText("Patch without mask: OK", 10, 190, 1, TFT_GREEN, false);
+        Serial.println("Failed to write user_id to SPIFFS");
     }
+    file.close();
 
-    // Step 3: Try patch with mask (optional)
-    displayTFTText("Patch with mask...", 10, 220, 1, TFT_YELLOW, false);
-    if (!Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "", testDoc.c_str(), payload.raw(), "test_value")) {
-        String errorMsg = "Patch with mask failed: " + fbdo.errorReason();
-        displayTFTText("Payload: " + String(payload.raw()), 10, 250, 1, TFT_RED, false);
-        displayTFTText("HTTP Code: " + String(fbdo.httpCode()), 10, 280, 1, TFT_RED, false);
-        displayTFTText("Error: " + errorMsg, 10, 310, 1, TFT_RED, false);
-    } else {
-        displayTFTText("Patch with mask: OK", 10, 250, 1, TFT_GREEN, false);
-    }
-
-    displayOLEDText("Firebase Ready!", 0, OLED_NEW_LINE*2, 1, false);
-    displayTFTText("Firebase Ready!", 10, 280, 2, TFT_GREEN, false);
-    Serial.println("Firebase initialized");
-    return FIREBASE_STATUS_CONNECTED;
+    // Display user_id on OLED
+    displayOLEDText("User sign-in successful", 0, OLED_NEW_LINE*0, 1, true);
+    displayOLEDText("Paired User ID:", 0, OLED_NEW_LINE*1, 1, false);
+    displayOLEDText(userId, 0, OLED_NEW_LINE*2, 1, false);
 }
 
-void firebaseLoop() {
-    if (!firebaseInitialized) return;
-    
+void triggerPairingAlert() {
+    // Example: Flash an LED connected to GPIO 2
+    const int LED_PIN = 2;
+    pinMode(LED_PIN, OUTPUT);
+    for (int i = 0; i < 5; i++) {
+        digitalWrite(LED_PIN, HIGH);
+        delay(200);
+        digitalWrite(LED_PIN, LOW);
+        delay(200);
+    }
+    Serial.println("Pairing alert triggered!");
+}
+
+void processFirebase() {
+    if (timeSyncState != TimeSyncState::READY || wifiState != WiFiState::CONNECTED) {
+        return;
+    }
+
     if (!Firebase.ready()) {
-        setFirebaseError("Connection Lost");
-    }
-}
-
-bool writeToFirestore(const String& path, const String& jsonString) {
-    if (!firebaseInitialized || !Firebase.ready()) {
-        setFirebaseError("Not Ready");
-        delay(3000); // Delay to allow for Firebase processing
-        return false;
+        Serial.println("Firebase not ready, reconnecting...");
+        Firebase.begin(&config, &auth);
+        return;
     }
 
-    displayOLEDText("Writing...", 0, OLED_NEW_LINE*3, 1, false);
-    displayTFTText("Writing to: " + path, 10, 10, 1, TFT_YELLOW, true);
-    delay(5000); // Delay to allow for Firebase processing
-    FirebaseJson content;
-    content.setJsonData(jsonString);
-
-    if (Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), content.raw(), "")) {
-        displayOLEDText("Write OK: " + path, 0, OLED_NEW_LINE*3, 1, false);
-        displayTFTText("Write OK: " + path, 10, 40, 1, TFT_GREEN, false);
-        delay(10000); // Delay to allow for Firebase processing
-        return true;
-    } else {
-        String errorMsg = fbdo.errorReason();
-        setFirebaseError("Write Failed: " + errorMsg);
-        displayTFTText("Write Failed: " + errorMsg, 10, 40, 1, TFT_RED, false);
-        displayTFTText("HTTP Code: " + String(fbdo.httpCode()), 10, 70, 1, TFT_RED, false);
-        delay(10000); // Delay to allow for Firebase processing
-        return false;
-    }
-}
-
-String readFromFirestore(const String& path) {
-    if (!firebaseInitialized || !Firebase.ready()) {
-        setFirebaseError("Not Ready");
-        return "";
+    if (pairingState != PairingState::PENDING) {
+        return;
     }
 
-    displayOLEDText("Reading...", 0, OLED_NEW_LINE*3, 1, false);
-    try{
-    if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), "")) {
-        displayOLEDText("Read OK: " + path, 0, OLED_NEW_LINE*3, 1, false);
-        return fbdo.payload().c_str();
-    } else {
-        String errorMsg = fbdo.errorReason();
-        setFirebaseError("Read Failed: " + errorMsg);
-        displayTFTText("Read Failed: " + errorMsg, 10, 40, 1, TFT_RED, false);
-        displayTFTText("HTTP Code: " + String(fbdo.httpCode()), 10, 70, 1, TFT_RED, false);
-        return "";
+    if (millis() - lastPollTime >= POLLING_INTERVAL) {
+        String path = "pairing_requests/" + deviceId;
+        Serial.println("Polling pairing request...");
+        Serial.print("Firestore path: ");
+        Serial.println(path);
+
+        if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), "")) {
+            DynamicJsonDocument doc(2048);
+            DeserializationError error = deserializeJson(doc, fbdo.payload());
+
+            if (error) {
+                Serial.print("JSON deserialization failed: ");
+                Serial.println(error.c_str());
+                return;
+            }
+
+            // Access the simplified fields
+            String status = doc["fields"]["status"]["stringValue"].as<String>();
+            String uid = doc["fields"]["uid"]["stringValue"].as<String>();
+            String userId = doc["fields"]["user_id"]["stringValue"].as<String>();
+
+            Serial.print("Parsed status: ");
+            Serial.println(status);
+
+            if (status == "approved" && !uid.isEmpty() && !userId.isEmpty()) {
+                Serial.print("Payload: ");
+                Serial.println(fbdo.payload()); // Print payload only on approval
+                pairedUid = uid;
+                pairedUserId = userId;
+                Serial.print("Pairing approved! UID: ");
+                Serial.println(pairedUid);
+                Serial.print("User ID: ");
+                Serial.println(pairedUserId);
+                pairingState = PairingState::PAIRED;
+
+                // Trigger alert
+                triggerPairingAlert();
+
+                // Handle user_id (save to SPIFFS and display)
+                handlePairedUserId(pairedUserId);
+
+                // Delete the pairing request
+                if (Firebase.Firestore.deleteDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str())) {
+                    Serial.println("Pairing request deleted from Firestore");
+                } else {
+                    Serial.print("Failed to delete pairing request: ");
+                    Serial.println(fbdo.errorReason());
+                }
+
+                // Fetch session data
+                String sessionPath = "users/" + pairedUid + "/sessions";
+                Serial.print("Fetching session from: ");
+                Serial.println(sessionPath);
+                if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", sessionPath.c_str(), "")) {
+                    Serial.print("Session payload: ");
+                    Serial.println(fbdo.payload());
+                } else {
+                    Serial.print("Failed to fetch session: ");
+                    Serial.println(fbdo.errorReason());
+                }
+            } else if (status == "rejected") {
+                Serial.println("Pairing rejected");
+                pairingState = PairingState::UNPAIRED;
+            } else {
+                Serial.println("Status not approved or rejected, continuing to poll...");
+            }
+        } else {
+            Serial.print("Failed to get document: ");
+            Serial.println(fbdo.errorReason());
+        }
+        lastPollTime = millis();
     }
-} catch(const std::exception& e) {
-        Serial.printf("Exception: %s" , e.what());
-        return "";
-}
-
-}
-
-bool deleteFromFirestore(const String& path) {
-    if (!firebaseInitialized || !Firebase.ready()) {
-        setFirebaseError("Not Ready");
-        return false;
-    }
-
-    displayOLEDText("Deleting...", 0, OLED_NEW_LINE*3, 1, false);
-    displayTFTText("Deleting: " + path, 10, 10, 1, TFT_YELLOW, true);
-    if (Firebase.Firestore.deleteDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str())) {
-        displayOLEDText("Delete OK: " + path, 0, OLED_NEW_LINE*3, 1, false);
-        displayTFTText("Delete OK: " + path, 10, 40, 1, TFT_GREEN, false);
-        return true;
-    } else {
-        String errorMsg = fbdo.errorReason();
-        setFirebaseError("Delete Failed: " + errorMsg);
-        displayTFTText("Delete Failed: " + errorMsg, 10, 40, 1, TFT_RED, false);
-        displayTFTText("HTTP Code: " + String(fbdo.httpCode()), 10, 70, 1, TFT_RED, false);
-        return false;
-    }
-}
-
-bool isFirebaseReady() {
-    return firebaseInitialized && Firebase.ready();
-}
-
-String getLastFirebaseError() {
-    return lastErrorMessage;
 }

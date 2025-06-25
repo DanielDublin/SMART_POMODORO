@@ -2,29 +2,37 @@
 #define WIFI_MANAGER_H
 
 #include <WiFiManager.h>
-#include "config.h"
+#include <WiFi.h>
+#include <time.h>
 #include "displays.h"
+#include "firebase_handler.h"
 
+// Enum for WiFi connection states
+enum class WiFiState {
+    DISCONNECTED,
+    CONNECTED,
+    CONFIG_PORTAL,
+    PENDING_PORTAL
+};
 
-typedef enum WiFiStatus {
-  WIFI_CONNECTED,
-  WIFI_DISCONNECTED,
-  WIFI_CONNECT_FAILED,
-  WIFI_CONNECTION_LOST,
-  WIFI_NO_SSID_AVAIL,
-  WIFI_IDLE_STATUS,
-} WiFiStatus;
+// Enum for time synchronization states
+enum class TimeSyncState {
+    PENDING,
+    SYNCED,
+    READY // Ready for Firebase initialization
+};
 
-// Core WiFi setup and status functions
-WiFiStatus setupWiFi();
-WiFiStatus setupWiFi2();
-bool isWiFiConnected();
-String getLocalIP();
-String getNetworkName();
-void syncTime();
-// New background monitoring functions
-void startWiFiMonitor();
-bool waitForWiFiConnection(uint32_t timeout_ms);
+// Global variables
+extern WiFiManager wm;
+extern WiFiState wifiState;
+extern TimeSyncState timeSyncState;
+extern void (*onTimeSyncedCallback)();
+extern unsigned long portalStartTime;
+extern const unsigned long portalTimeout;
+extern bool portalStartLocked;
 
+// Function prototypes
+void setupWiFi();
+void processWiFi();
 
-#endif 
+#endif

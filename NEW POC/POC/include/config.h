@@ -32,5 +32,7 @@
 #define FIREBASE_API_KEY "AIzaSyDeoMrCH0XKwA8cZ1g1KvUplpajqgxneds"
 #define FIREBASE_PROJECT_ID "smart-pomodoro-2"
 #define FIREBASE_DATABASE_URL "https://smart-pomodoro-2-default-rtdb.firebaseio.com/"
+#define FIREBASE_USER_EMAIL "<your_email@example.com>"
+#define FIREBASE_USER_PASSWORD "<your_password>"
 
 #endif // CONFIG_H 

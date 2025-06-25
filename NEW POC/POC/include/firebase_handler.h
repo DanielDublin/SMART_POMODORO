@@ -3,25 +3,19 @@
 
 #include <Firebase_ESP_Client.h>
 
-typedef enum FirebaseStatus {
-    FIREBASE_STATUS_INITIALIZED,
-    FIREBASE_STATUS_CONNECTED,
-    FIREBASE_STATUS_DISCONNECTED,
-    FIREBASE_STATUS_ERROR
-} FirebaseStatus;
+// Enum for pairing states
+enum class PairingState {
+    UNPAIRED,
+    PENDING,
+    PAIRED
+};
 
-// Core functions
-FirebaseStatus setupFirebase();
-void firebaseLoop();
+// Function prototypes
+void initFirebase();
+void processFirebase();
 
-FirebaseStatus testFireBase();
-// Basic Firestore operations
-bool writeToFirestore(const String& path, const String& jsonString);
-String readFromFirestore(const String& path);
-bool deleteFromFirestore(const String& path);
+// Global variables
+extern PairingState pairingState;
+extern String pairedUid;
 
-// Status checks
-bool isFirebaseReady();
-String getLastFirebaseError();
-
-#endif 
+#endif
