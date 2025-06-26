@@ -4,6 +4,7 @@ Screens::Screens(Audio& audio) : audio(audio), currentScreen(CHOOSE_MODE_SCREEN)
                                 roterySlower(false), pomodoroStartTime(0), currentPomodoroMinutes(0),
                                 isPomodoroRunning(false), isPomodoroTimerPaused(false), pausedElapsedTime(0),
                                 pomodoroCount(0), lastTimerStr(""),
+                                sessionName(""), sessionId(""),
                                 lastFaceUpdate(0), currentFace(FACE_FOCUSED) {}
 
 void Screens::init() {
@@ -21,16 +22,14 @@ void Screens::updateselectedInputIndex(int value) {
         if (value > 0) {
             selectedInputIndex++;
             selectedInputIndex = selectedInputIndex % currentTotalOptions;
-        }
-        else {
+        } else {
             selectedInputIndex--;
             selectedInputIndex = abs(selectedInputIndex) % currentTotalOptions;
         }
         audio.playButton(0.7);
         Serial.printf("selectedInputIndex: %d\n", selectedInputIndex);
-        displayCurrentScreen(true);  // Update display immediately after selection change
-    }
-    else {
+        displayCurrentScreen(true);
+    } else {
         roterySlower = !roterySlower;
     }
 }
@@ -38,17 +37,13 @@ void Screens::updateselectedInputIndex(int value) {
 void Screens::displayCurrentScreen(bool update) {
     if (currentScreen == CHOOSE_MODE_SCREEN) {
         chooseModeScreen(update);
-    }
-    else if (currentScreen == QR_SCREEN) {
-      qrScreen(update);
-    }
-    else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
+    } else if (currentScreen == QR_SCREEN) {
+        qrScreen(update);
+    } else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
         onlineSessionPlannerScreen(update);
-    }
-    else if (currentScreen == OFFLINE_POMODORO_SETTINGS_SCREEN) {
+    } else if (currentScreen == OFFLINE_POMODORO_SETTINGS_SCREEN) {
         offlinePomodoroSettingsScreen(update);
-    }
-    else if (currentScreen == POMODORO_TIMER_SCREEN) {
+    } else if (currentScreen == POMODORO_TIMER_SCREEN) {
         pomodoroTimerScreen(update);
     }
 }
@@ -63,190 +58,218 @@ void Screens::chooseModeScreen(bool update) {
 
 void Screens::qrScreen(bool update) {
     currentTotalOptions = 0;
-    Serial.println("here");
     drawQR();
 }
 
 void Screens::handleValuesChange(int* value) {
-  if (*value < 0) return;
-  int rotaryValue = handleRotaryEncoder();
-  if (rotaryValue != 0) {
-    int newValue = *value + rotaryValue;
-    // Ensure value stays at minimum 1
-    if (newValue < 1) {
-      newValue = 1;
+    if (*value < 0) return;
+    int rotaryValue = handleRotaryEncoder();
+    if (rotaryValue != 0) {
+        int newValue = *value + rotaryValue;
+        if (newValue < 1) {
+            newValue = 1;
+        }
+        *value = newValue;
     }
-    *value = newValue;
-  }
 }
 
 void Screens::offlinePomodoroSettingsScreen(bool update) {
-  currentTotalOptions = 6;
-  // int pomodoroLen = 30, shortBreakLen = 5, longBreakLen = 30, longBreakAfter = 4;
-  String options[] = {"Confirm", "Return"};
-  int optionsSize = sizeof(options) / sizeof(options[0]);
-  String prompt = "Settings";
-  String pomodoroLenStr = "Pomodoro Duration: ";
-  String shortBreakLenStr = "Short Break Duration: ";
-  String longBreakLenStr = "Long Break Duration: ";
-  String longBreakAfterStr = "Long Break After: ";
-  displayTFTText(prompt, centerTextX(prompt, 3), 0, 3, TFT_BLUE, false);
-  displayTFTText(pomodoroLenStr, 0, 50, 2, TFT_BLUE, false);
-  displayTFTText(shortBreakLenStr, 0, 100, 2, TFT_BLUE, false);
-  displayTFTText(longBreakLenStr, 0, 150, 2, TFT_BLUE, false);
-  displayTFTText(longBreakAfterStr, 0, 200, 2, TFT_BLUE, false);
-  if (selectedInputIndex < valuesSize) {
-    handleValuesChange(&initValuesForOffline[selectedInputIndex]);
-  }
-  drawValues(initValuesForOffline, valuesSize, options, optionsSize, selectedInputIndex, 50, update);
+    currentTotalOptions = 6;
+    String options[] = {"Confirm", "Return"};
+    int optionsSize = sizeof(options) / sizeof(options[0]);
+    String prompt = "Settings";
+    String pomodoroLenStr = "Pomodoro Duration: ";
+    String shortBreakLenStr = "Short Break Duration: ";
+    String longBreakLenStr = "Long Break Duration: ";
+    String longBreakAfterStr = "Long Break After: ";
+    displayTFTText(prompt, centerTextX(prompt, 3), 0, 3, TFT_BLUE, false);
+    displayTFTText(pomodoroLenStr, 0, 50, 2, TFT_BLUE, false);
+    displayTFTText(shortBreakLenStr, 0, 100, 2, TFT_BLUE, false);
+    displayTFTText(longBreakLenStr, 0, 150, 2, TFT_BLUE, false);
+    displayTFTText(longBreakAfterStr, 0, 200, 2, TFT_BLUE, false);
+    if (selectedInputIndex < valuesSize) {
+        handleValuesChange(&initValues[selectedInputIndex]);
+    }
+    drawValues(initValues, valuesSize, options, optionsSize, selectedInputIndex, 50, update);
 }
 
 void Screens::onlineSessionPlannerScreen(bool update) {
-  currentTotalOptions = 2;
-  String options[] = {"Confirm", "Return"};
-  String rawUserData = userData.raw();
-  
-  // Always draw the static text, regardless of update flag
-  String prompt = "Session Planner";
-  String deadlineString = "Deadline: ";
-  String sessionPerDayString = "Session per day: ";
-  String studyDaysString = "Study days: ";
-  displayTFTText(prompt, centerTextX(prompt, 3), 0, 3, TFT_BLUE, false);
-  displayTFTText(deadlineString, 0, 50, 2, TFT_BLUE, false);
-  displayTFTText(sessionPerDayString, 0, 100, 2, TFT_BLUE, false);
-  displayTFTText(studyDaysString, 0, 150, 2, TFT_BLUE, false);
+    currentTotalOptions = 2;
+    String options[] = {"Confirm", "Return"};
+    
+    String prompt = "Session Planner";
+    String sessionNameStr = "Session: ";
+    String deadlineStr = "Deadline: ";
+    String sessionsPerDayStr = "Sessions per day: ";
+    String studyDaysStr = "Study days: ";
+    displayTFTText(prompt, centerTextX(prompt, 3), 0, 3, TFT_BLUE, false);
+    displayTFTText(sessionNameStr, 0, 50, 2, TFT_BLUE, false);
+    displayTFTText(deadlineStr, 0, 100, 2, TFT_BLUE, false);
+    displayTFTText(sessionsPerDayStr, 0, 150, 2, TFT_BLUE, false);
+    displayTFTText(studyDaysStr, 0, 200, 2, TFT_BLUE, false);
 
-  if (rawUserData.length() == 0) {
-    String data = readFromFirestore("test_collection/session1");  //hard coded for now
-    Serial.println(data);
-    userData.setJsonData(data);
-  }
+    String rawUserData = userData.raw();
+    if (rawUserData.length() == 0) {
+        String data;
+        sessionId = "CVOR7lRCdyVndeWbGjgq"; // Hardcoded for now; consider dynamic selection
+        if (readSessionData(data, pairedUid, sessionId)) {
+            userData.setJsonData(data);
+        } else {
+            displayTFTText("Failed to load session", 0, 250, 2, TFT_RED, false);
+            return;
+        }
+    }
 
-  FirebaseJsonData data;
-  String deadline, sessionPerDay, studyDays;
-  if (userData.get(data, "fields/deadline/timestampValue")) {
-      deadline = data.stringValue;
-  }
-  if (userData.get(data, "fields/sessionPerDay/integerValue")) {
-      sessionPerDay = data.stringValue;
-  }
-  if (userData.get(data, "fields/studyDays/stringValue")) {
-      studyDays = data.stringValue;
-  }
-  
-  // Format deadline to DD/MM
-  String day = deadline.substring(8, 10);
-  String month = deadline.substring(5, 7);
-  String deadlineFormatted = day + "/" + month;
+    FirebaseJsonData data;
+    String deadline, sessionsPerDay, studyDays;
+    if (userData.get(data, "fields/pomodoroLength/integerValue")) {
+        initValues[0] = data.intValue;
+    }
+    if (userData.get(data, "fields/shortBreakLength/integerValue")) {
+        initValues[1] = data.intValue;
+    }
+    if (userData.get(data, "fields/longBreakLength/integerValue")) {
+        initValues[2] = data.intValue;
+    }
+    if (userData.get(data, "fields/longBreakAfter/integerValue")) {
+        initValues[3] = data.intValue;
+    }
+    if (userData.get(data, "fields/sessionName/stringValue")) {
+        sessionName = data.stringValue;
+    }
+    if (userData.get(data, "fields/examDeadline/timestampValue")) {
+        deadline = data.stringValue;
+    }
+    if (userData.get(data, "fields/sessionsPerDay/integerValue")) {
+        sessionsPerDay = data.stringValue;
+    }
+    if (userData.get(data, "fields/selectedDays/arrayValue/values")) {
+        FirebaseJsonArray arr;
+        data.getArray(arr);
+        String days = "";
+        for (size_t i = 0; i < arr.size(); i++) {
+            FirebaseJsonData day;
+            arr.get(day, i);
+            String dayStr = day.stringValue;
+            days += dayStr.substring(8, 10) + "/" + dayStr.substring(5, 7);
+            if (i < arr.size() - 1) days += ", ";
+        }
+        studyDays = days;
+    }
 
-  displayTFTText(deadlineFormatted, 300, 50, 2, TFT_BLUE, false);
-  displayTFTText(sessionPerDay, 300, 100, 2, TFT_BLUE, false);
-  displayTFTText(studyDays, 300, 150, 2, TFT_BLUE, false);
-  
-  drawMenu(options, currentTotalOptions, selectedInputIndex, 250, update);
+    String deadlineFormatted = deadline.substring(8, 10) + "/" + deadline.substring(5, 7);
+    displayTFTText(sessionName, 300, 50, 2, TFT_BLUE, false);
+    displayTFTText(deadlineFormatted, 300, 100, 2, TFT_BLUE, false);
+    displayTFTText(sessionsPerDay, 300, 150, 2, TFT_BLUE, false);
+    displayTFTText(studyDays, 300, 200, 2, TFT_BLUE, false);
+
+    drawMenu(options, currentTotalOptions, selectedInputIndex, 250, update);
 }
 
-  void Screens::adjustSelectedValue(int delta) {
+void Screens::adjustSelectedValue(int delta) {
     if (currentScreen == OFFLINE_POMODORO_SETTINGS_SCREEN && selectedInputIndex < valuesSize) {
-        int newValue = initValuesForOffline[selectedInputIndex] + delta;
+        int newValue = initValues[selectedInputIndex] + delta;
         if (newValue >= 1) {
-            initValuesForOffline[selectedInputIndex] = newValue;
-            audio.playButton(0.7);  // Beep for value change
+            initValues[selectedInputIndex] = newValue;
+            audio.playButton(0.7);
         }
-      }
     }
-
+}
 
 void Screens::pomodoroTimerScreen(bool update) {
-  currentTotalOptions = 2;  // Stop and Pause/Resume
-  String options[] = {"Stop", isPomodoroTimerPaused ? "Resume" : "Pause"};
+    currentTotalOptions = 2;
+    String options[] = {"Stop", isPomodoroTimerPaused ? "Resume" : "Pause"};
 
-  if (!isPomodoroRunning) {
-    pomodoroStartTime = millis();
-    isPomodoroRunning = true;
-    isPomodoroTimerPaused = false;
-    pausedElapsedTime = 0;
-    currentPomodoroMinutes = initValuesForOffline[0]; // Use the set pomodoro length
-    lastTimerStr = "";  // Reset last timer string
-    lastFaceUpdate = millis();
-    currentFace = FACE_FOCUSED;
-    
-    // Initial screen setup
-    clearTFTScreen();
-    clearOLEDScreen();
-    String sessionType = "Focus Time";
-    displayTFTText(sessionType, centerTextX(sessionType, 3), 50, 3, TFT_BLUE, false);
-    drawMenu(options, currentTotalOptions, selectedInputIndex, 250, true);
-    displayOLEDFace(currentFace);
-  }
-  
-  // Update face animation
-  unsigned long currentTime = millis();
-  if (currentTime - lastFaceUpdate >= FACE_UPDATE_INTERVAL) {
-    // Switch between the two faces
-    currentFace = (currentFace == FACE_FOCUSED) ? FACE_TIRED : FACE_FOCUSED;
-    displayOLEDFace(currentFace);
-    lastFaceUpdate = currentTime;
-  }
-
-  // Calculate remaining time
-  unsigned long elapsedSeconds;
-  if (isPomodoroTimerPaused) {
-    elapsedSeconds = pausedElapsedTime / 1000;
-  } else {
-    elapsedSeconds = (millis() - pomodoroStartTime) / 1000;
-  }
-  
-  int totalSeconds = (currentPomodoroMinutes * 60) - elapsedSeconds;
-  int remainingMinutes = totalSeconds / 60;
-  int remainingSeconds = totalSeconds % 60;
-
-  if (totalSeconds <= 0) {
-    // Pomodoro session finished
-    clearTFTScreen();
-    clearOLEDScreen();
-    audio.playCharSound(true, 0.4);
-    pomodoroCount++;
-    lastTimerStr = "";  // Reset last timer string
-    
-    // Check if it's time for a long break
-    if (pomodoroCount % initValuesForOffline[3] == 0) {
-      currentPomodoroMinutes = initValuesForOffline[2]; // Long break
-      String message = "Long Break Time!";
-      displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
-    } else {
-      currentPomodoroMinutes = initValuesForOffline[1]; // Short break
-      String message = "Short Break Time!";
-      displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
+    if (!isPomodoroRunning) {
+        pomodoroStartTime = millis();
+        isPomodoroRunning = true;
+        isPomodoroTimerPaused = false;
+        pausedElapsedTime = 0;
+        currentPomodoroMinutes = initValues[0];
+        lastTimerStr = "";
+        lastFaceUpdate = millis();
+        currentFace = FACE_FOCUSED;
+        
+        clearTFTScreen();
+        clearOLEDScreen();
+        String sessionType = "Focus Time";
+        displayTFTText(sessionType, centerTextX(sessionType, 3), 50, 3, TFT_BLUE, false);
+        drawMenu(options, currentTotalOptions, selectedInputIndex, 250, true);
+        displayOLEDFace(currentFace);
     }
-    currentFace = FACE_TIRED;  // Use tired/relaxed face for breaks
-    displayOLEDFace(currentFace);
-    pomodoroStartTime = millis();
-    lastFaceUpdate = millis();
-    drawMenu(options, currentTotalOptions, selectedInputIndex, 250, true);
-    return;
-  }
-
-  // Format new timer string
-  String newTimerStr = String(remainingMinutes) + ":" + (remainingSeconds < 10 ? "0" : "") + String(remainingSeconds);
-  
-  // Only update if the time has changed
-  if (newTimerStr != lastTimerStr) {
-    // Calculate position for centered timer
-    int size = 4;
-    int timerWidth = getDigitWidth(size) * newTimerStr.length() + getDigitWidth(size)/2; // Add half digit width for colon spacing
-    int timerX = (ILI_SCREEN_WIDTH - timerWidth) / 2;
     
-    // Update only changed digits
-    displayTFTTimer(newTimerStr, lastTimerStr, timerX, 150, size, TFT_WHITE);
-    
-    lastTimerStr = newTimerStr;
-  }
+    unsigned long currentTime = millis();
+    if (currentTime - lastFaceUpdate >= FACE_UPDATE_INTERVAL) {
+        currentFace = (currentFace == FACE_FOCUSED) ? FACE_TIRED : FACE_FOCUSED;
+        displayOLEDFace(currentFace);
+        lastFaceUpdate = currentTime;
+    }
 
-  if (update) {
-    // Only redraw menu if update is requested
-    drawMenu(options, currentTotalOptions, selectedInputIndex, 250, false);
-  }
+    unsigned long elapsedSeconds;
+    if (isPomodoroTimerPaused) {
+        elapsedSeconds = pausedElapsedTime / 1000;
+    } else {
+        elapsedSeconds = (millis() - pomodoroStartTime) / 1000;
+    }
+    
+    int totalSeconds = (currentPomodoroMinutes * 60) - elapsedSeconds;
+    int remainingMinutes = totalSeconds / 60;
+    int remainingSeconds = totalSeconds % 60;
+
+    if (totalSeconds <= 0) {
+        clearTFTScreen();
+        clearOLEDScreen();
+        audio.playCharSound(true, 0.4);
+        pomodoroCount++;
+        lastTimerStr = "";
+        
+        if (pairingState == PairingState::PAIRED && currentScreen == POMODORO_TIMER_SCREEN) {
+            FirebaseJson json;
+            time_t now = time(nullptr);
+            char timestamp[30];
+            strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+            json.set("fields/completedAt/timestampValue", String(timestamp));
+            json.set("fields/duration/integerValue", initValues[0]);
+            json.set("fields/type/stringValue", pomodoroCount % initValues[3] == 0 ? "long_break" : pomodoroCount % 2 == 0 ? "short_break" : "pomodoro");
+            json.set("fields/sessionName/stringValue", sessionName);
+            String logId = "log_" + String(timestamp);
+            if (writeSessionLog(pairedUid, logId, json)) {
+                displayTFTText("Session logged!", 0, 200, 2, TFT_GREEN, false);
+            } else {
+                displayTFTText("Failed to log session", 0, 200, 2, TFT_RED, false);
+            }
+        }
+
+        if (pomodoroCount % initValues[3] == 0) {
+            currentPomodoroMinutes = initValues[2];
+            String message = "Long Break Time!";
+            displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
+        } else {
+            currentPomodoroMinutes = initValues[1];
+            String message = "Short Break Time!";
+            displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
+        }
+        currentFace = FACE_TIRED;
+        displayOLEDFace(currentFace);
+        pomodoroStartTime = millis();
+        lastFaceUpdate = millis();
+        drawMenu(options, currentTotalOptions, selectedInputIndex, 250, true);
+        return;
+    }
+
+    String newTimerStr = String(remainingMinutes) + ":" + (remainingSeconds < 10 ? "0" : "") + String(remainingSeconds);
+    
+    if (newTimerStr != lastTimerStr) {
+        int size = 4;
+        int timerWidth = getDigitWidth(size) * newTimerStr.length() + getDigitWidth(size)/2;
+        int timerX = (ILI_SCREEN_WIDTH - timerWidth) / 2;
+        displayTFTTimer(newTimerStr, lastTimerStr, timerX, 150, size, TFT_WHITE);
+        lastTimerStr = newTimerStr;
+    }
+
+    if (update) {
+        drawMenu(options, currentTotalOptions, selectedInputIndex, 250, false);
+    }
 }
 
 int Screens::getChoice() {
@@ -255,43 +278,35 @@ int Screens::getChoice() {
             return ONLINE;
         }
         return OFFLINE;
-    }
-    else if (currentScreen == OFFLINE_POMODORO_SETTINGS_SCREEN) {
+    } else if (currentScreen == OFFLINE_POMODORO_SETTINGS_SCREEN) {
         if (selectedInputIndex < 4) {
             return selectedInputIndex;
-        }
-        else if (selectedInputIndex == CONFIRM) {
+        } else if (selectedInputIndex == CONFIRM) {
             return CONFIRM;
         }
         return RETURN;
-    }
-    else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
-        if (selectedInputIndex == 0) {  // Confirm
+    } else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
+        if (selectedInputIndex == 0) {
             return CONFIRM;
-        }
-        else if (selectedInputIndex == 1) {  // Return
+        } else if (selectedInputIndex == 1) {
             return RETURN;
         }
         return -1;
-    }
-    else if (currentScreen == POMODORO_TIMER_SCREEN) {
-        if (selectedInputIndex == 0) {  // Stop
-            isPomodoroRunning = false;  // Stop the timer
-            return FIRST_OPTION;  // Return to settings
-        }
-        else if (selectedInputIndex == 1) {  // Pause/Resume
+    } else if (currentScreen == POMODORO_TIMER_SCREEN) {
+        if (selectedInputIndex == 0) {
+            isPomodoroRunning = false;
+            return FIRST_OPTION;
+        } else if (selectedInputIndex == 1) {
             if (isPomodoroTimerPaused) {
-                // Resume - update start time to account for paused duration
                 pomodoroStartTime = millis() - pausedElapsedTime;
                 isPomodoroTimerPaused = false;
             } else {
-                // Pause - store current elapsed time
                 pausedElapsedTime = millis() - pomodoroStartTime;
                 isPomodoroTimerPaused = true;
             }
-            audio.playButton(0.7);  // Play feedback sound
-            displayCurrentScreen(true);  // Force screen update to show new button text
-            return -1;  // Stay on current screen
+            audio.playButton(0.7);
+            displayCurrentScreen(true);
+            return -1;
         }
     }
     return -1;
@@ -301,7 +316,7 @@ Screens::ScreenChoice Screens::getCurrentScreen() {
     return currentScreen;
 }
 
-void Screens::switchScreen(Screens::ScreenChoice nextScreen) {
+void Screens::switchScreen(ScreenChoice nextScreen) {
     clearTFTScreen();
     selectedInputIndex = 0;
     currentScreen = nextScreen;

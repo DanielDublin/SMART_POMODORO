@@ -230,3 +230,46 @@ void processFirebase() {
         lastPollTime = millis();
     }
 }
+
+
+bool readSessionData(String& data, const String& userId, const String& sessionId) {
+    if (!Firebase.ready() || wifiState != WiFiState::CONNECTED || timeSyncState != TimeSyncState::READY) {
+        Serial.println("Cannot read session: Firebase or WiFi not ready");
+        return false;
+    }
+
+    String path = "users/" + userId + "/sessions/" + sessionId;
+    Serial.print("Reading session from: ");
+    Serial.println(path);
+
+    if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), "")) {
+        data = fbdo.payload();
+        Serial.print("Session data retrieved: ");
+        Serial.println(data);
+        return true;
+    } else {
+        Serial.print("Failed to read session: ");
+        Serial.println(fbdo.errorReason());
+        return false;
+    }
+}
+
+bool writeSessionLog(const String& userId, const String& logId, FirebaseJson& json) {
+    if (!Firebase.ready() || wifiState != WiFiState::CONNECTED || timeSyncState != TimeSyncState::READY) {
+        Serial.println("Cannot write session log: Firebase or WiFi not ready");
+        return false;
+    }
+
+    String path = "users/" + userId + "/session_logs/" + logId;
+    Serial.print("Writing session log to: ");
+    Serial.println(path);
+
+    if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), json.raw())) {
+        Serial.println("Session log written to Firestore");
+        return true;
+    } else {
+        Serial.print("Failed to write session log: ");
+        Serial.println(fbdo.errorReason());
+        return false;
+    }
+}

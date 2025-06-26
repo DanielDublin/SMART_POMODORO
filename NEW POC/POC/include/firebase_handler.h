@@ -13,6 +13,8 @@ enum class PairingState {
 // Function prototypes
 void initFirebase();
 void processFirebase();
+bool readSessionData(String& data, const String& userId, const String& sessionId);
+bool writeSessionLog(const String& userId, const String& logId, FirebaseJson& json);
 
 // Global variables
 extern PairingState pairingState;

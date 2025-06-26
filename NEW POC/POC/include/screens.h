@@ -7,8 +7,7 @@
 #include "audio_handler.h"
 #include "png_handler.h"
 
-
-#define FIRST_OPTION 0 //all in one enum or in define????????? fix in loop later
+#define FIRST_OPTION 0
 #define SECOND_OPTION 1
 #define CONFIRM 4
 #define RETURN 5
@@ -29,7 +28,7 @@ public:
         OFFLINE
     } Options;
 
-    Screens(Audio& audio);  // Constructor now accepts Audio&
+    Screens(Audio& audio);
     void init();
     void displayCurrentScreen(bool update);
     void chooseModeScreen(bool update);
@@ -38,8 +37,8 @@ public:
     void onlineSessionPlannerScreen(bool update);
     void pomodoroTimerScreen(bool update);
     void updateselectedInputIndex(int value);
-    void adjustSelectedValue(int delta);  // New method for value adjustments
-    int getChoice();  // Changed to return int instead of ScreenChoice
+    void adjustSelectedValue(int delta);
+    int getChoice();
     ScreenChoice getCurrentScreen();
     void switchScreen(ScreenChoice nextScreen);
 private:
@@ -49,19 +48,20 @@ private:
     int selectedInputIndex;
     int currentTotalOptions;
     bool roterySlower;
-    int initValuesForOffline[4] = {30, 5, 30, 4};
+    int initValues[4] = {25, 5, 15, 4}; // pomodoroLength, shortBreakLength, longBreakLength, longBreakAfter
     int valuesSize = 4;
     FirebaseJson userData;
     unsigned long pomodoroStartTime;
     int currentPomodoroMinutes;
     bool isPomodoroRunning;
-    bool isPomodoroTimerPaused;  // New variable to track pause state
-    unsigned long pausedElapsedTime;  // New variable to store elapsed time when paused
+    bool isPomodoroTimerPaused;
+    unsigned long pausedElapsedTime;
     int pomodoroCount;
-    String lastTimerStr;  // Track last displayed timer value
-    // Face animation variables
+    String lastTimerStr;
+    String sessionName; // Added for session name
+    String sessionId;   // Added to track current session ID
     unsigned long lastFaceUpdate;
     FaceType currentFace;
-    const unsigned long FACE_UPDATE_INTERVAL = 10000; // Change face every 10 seconds
+    const unsigned long FACE_UPDATE_INTERVAL = 10000;
 };
-#endif 
+#endif
