@@ -58,7 +58,7 @@ void Screens::chooseModeScreen(bool update) {
 
 void Screens::qrScreen(bool update) {
     currentTotalOptions = 0;
-    drawQR();
+    png_handler::drawQR();
 }
 
 void Screens::handleValuesChange(int* value) {

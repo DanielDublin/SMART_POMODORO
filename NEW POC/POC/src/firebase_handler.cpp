@@ -1,11 +1,6 @@
 #include <Arduino.h>
 #include "firebase_handler.h"
-#include <WiFi.h>
-#include "wifi_manager.h"
 #include <addons/TokenHelper.h> // For token callback
-#include <time.h>               // For timestamp formatting
-#include <ArduinoJson.h>        // ArduinoJson v7
-#include <SPIFFS.h>             // For SPIFFS file storage
 
 
 // OLED display configuration
@@ -100,7 +95,7 @@ void initFirebase() {
     String path = "pairing_requests/" + deviceId;
     if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), json.raw())) {
         Serial.println("Pairing request created in Firestore");
-        drawQR();
+        png_handler::drawQR();
         pairingState = PairingState::PENDING;
         lastPollTime = millis();
     } else {
@@ -127,19 +122,6 @@ void handlePairedUserId(String userId) {
     displayOLEDText("User sign-in successful", 0, OLED_NEW_LINE*0, 1, true);
     displayOLEDText("Paired User ID:", 0, OLED_NEW_LINE*1, 1, false);
     displayOLEDText(userId, 0, OLED_NEW_LINE*2, 1, false);
-}
-
-void triggerPairingAlert() {
-    // Example: Flash an LED connected to GPIO 2
-    const int LED_PIN = 2;
-    pinMode(LED_PIN, OUTPUT);
-    for (int i = 0; i < 5; i++) {
-        digitalWrite(LED_PIN, HIGH);
-        delay(200);
-        digitalWrite(LED_PIN, LOW);
-        delay(200);
-    }
-    Serial.println("Pairing alert triggered!");
 }
 
 void processFirebase() {
@@ -192,8 +174,6 @@ void processFirebase() {
                 Serial.println(pairedUserId);
                 pairingState = PairingState::PAIRED;
 
-                // Trigger alert
-                triggerPairingAlert();
 
                 // Handle user_id (save to SPIFFS and display)
                 handlePairedUserId(pairedUserId);

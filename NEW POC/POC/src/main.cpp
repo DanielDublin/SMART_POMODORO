@@ -15,7 +15,6 @@
 
 Audio audio;
 Screens screenManager(audio);
-WiFiStatus wifiStatus = WIFI_DISCONNECTED;
 
 static bool lastWhiteButtonState = false;
 static Screens::ScreenChoice lastScreen = Screens::CHOOSE_MODE_SCREEN;
@@ -27,12 +26,14 @@ void setup() {
   setupDisplays();
   setupInputs();
   audio.begin();
+  clearTFTScreen();
+  delay(1000);  // Allow displays to initialize
   setupWiFi();
 
   clearTFTScreen();
   displayOLEDText("ESP32 POC Ready", 0, OLED_NEW_LINE * 5, 1, true);
-  screenManager.init();
   setupNeoPixel();
+  screenManager.init();
 }
 
 void handleBlueButtonNavigation(bool& needsUpdate) {
@@ -63,7 +64,7 @@ void handleWhiteButtonSelection(bool& needsUpdate) {
       case Screens::CHOOSE_MODE_SCREEN:
         if (choice == Screens::ONLINE) {
           screenManager.switchScreen(
-            wifiStatus != WIFI_CONNECTED ? Screens::QR_SCREEN : Screens::ONLINE_SESSION_PLANER_SCREEN
+            wifiState != WiFiState::CONNECTED ? Screens::QR_SCREEN : Screens::ONLINE_SESSION_PLANER_SCREEN
           );
         } else if (choice == Screens::OFFLINE) {
           screenManager.switchScreen(Screens::OFFLINE_POMODORO_SETTINGS_SCREEN);

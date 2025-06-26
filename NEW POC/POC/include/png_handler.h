@@ -1,3 +1,5 @@
+#ifndef PNG_HANDLER_H
+#define PNG_HANDLER_H
 
 #include <PNGdec.h>
 #include "qr_code.h"
@@ -5,6 +7,9 @@
 
 #define MAX_IMAGE_WIDTH 480
 
-void pngDraw(PNGDRAW *pDraw);
+namespace png_handler {
+  void pngDraw(PNGDRAW *pDraw);
+  void drawQR();
+}
 
-void drawQR();
+#endif // PNG_HANDLER_H

@@ -20,7 +20,7 @@
 
 // NeoPixel LED Strip
 #define LED_PIN   33    // Data pin
-#define NUM_LEDS  2     // Number of LEDs
+#define NUM_LEDS   2     // Number of LEDs
 #define BRIGHTNESS 0  // Brightness (0-255)
 
 // Push Buttons
@@ -32,7 +32,7 @@
 #define FIREBASE_API_KEY "AIzaSyDeoMrCH0XKwA8cZ1g1KvUplpajqgxneds"
 #define FIREBASE_PROJECT_ID "smart-pomodoro-2"
 #define FIREBASE_DATABASE_URL "https://smart-pomodoro-2-default-rtdb.firebaseio.com/"
-#define FIREBASE_USER_EMAIL "<your_email@example.com>"
-#define FIREBASE_USER_PASSWORD "<your_password>"
+#define FIREBASE_USER_EMAIL "pomodoro@gmail.com"
+#define FIREBASE_USER_PASSWORD "pomodoroisastrongpassword"
 
 #endif // CONFIG_H 

@@ -2,6 +2,12 @@
 #define FIREBASE_HANDLER_H
 
 #include <Firebase_ESP_Client.h>
+#include <WiFi.h>
+#include "wifi_manager.h"
+#include <time.h>               // For timestamp formatting
+#include <ArduinoJson.h>        // ArduinoJson v7
+#include <SPIFFS.h>             // For SPIFFS file storage
+#include "png_handler.h"          // For QR code
 
 // Enum for pairing states
 enum class PairingState {
