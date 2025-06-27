@@ -9,6 +9,7 @@ import 'study_planner_settings_screen.dart';
 import 'exam_dashboard_screen.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'pairing_screen.dart';
 
 enum SortOption {
   deadline,
@@ -282,6 +283,15 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
                 ),
               ),
             ],
+          ),
+          IconButton(
+            icon: Icon(Icons.qr_code_scanner, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => PairingScreen()),
+              );
+            },
           ),
           IconButton(
             icon: Icon(Icons.logout, color: Colors.white),
