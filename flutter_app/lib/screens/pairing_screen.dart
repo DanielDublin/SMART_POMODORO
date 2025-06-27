@@ -110,139 +110,141 @@ class _PairingScreenState extends State<PairingScreen> {
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Status Card
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          Icon(
-                            pairedDevice != null ? Icons.check_circle : Icons.device_unknown,
-                            size: 64,
-                            color: pairedDevice != null ? Colors.green : Colors.grey,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            pairedDevice != null ? 'Device Paired' : 'No Device Paired',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: pairedDevice != null ? Colors.green : Colors.grey[700],
+          : SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Status Card
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            Icon(
+                              pairedDevice != null ? Icons.check_circle : Icons.device_unknown,
+                              size: 64,
+                              color: pairedDevice != null ? Colors.green : Colors.grey,
                             ),
-                          ),
-                          if (pairedDevice != null) ...[
-                            SizedBox(height: 8),
+                            SizedBox(height: 16),
                             Text(
-                              'Device ID: ${pairedDevice!['deviceId']}',
+                              pairedDevice != null ? 'Device Paired' : 'No Device Paired',
                               style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                                fontFamily: 'monospace',
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: pairedDevice != null ? Colors.green : Colors.grey[700],
                               ),
                             ),
-                            SizedBox(height: 4),
+                            if (pairedDevice != null) ...[
+                              SizedBox(height: 8),
+                              Text(
+                                'Device ID: ${pairedDevice!['deviceId']}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'User ID: ${pairedDevice!['user_id']}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    
+                    // Action Buttons
+                    if (pairedDevice == null) ...[
+                      ElevatedButton.icon(
+                        onPressed: _scanQRCode,
+                        icon: Icon(Icons.qr_code_scanner, color: Colors.white),
+                        label: Text(
+                          'Scan QR Code',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        onPressed: _scanQRCode,
+                        icon: Icon(Icons.qr_code_scanner, color: Colors.white),
+                        label: Text(
+                          'Scan New QR Code',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _unpairDevice,
+                        icon: Icon(Icons.link_off, color: Colors.red),
+                        label: Text(
+                          'Unpair Device',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                    
+                    SizedBox(height: 24),
+                    
+                    // Instructions
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              'User ID: ${pairedDevice!['user_id']}',
+                              'How to Pair:',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              '1. Make sure your ESP32 device is powered on\n'
+                              '2. The device should display a QR code\n'
+                              '3. Tap "Scan QR Code" and point your camera at the QR code\n'
+                              '4. The device will be automatically paired to your account',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey[600],
+                                height: 1.4,
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 24),
-                  
-                  // Action Buttons
-                  if (pairedDevice == null) ...[
-                    ElevatedButton.icon(
-                      onPressed: _scanQRCode,
-                      icon: Icon(Icons.qr_code_scanner, color: Colors.white),
-                      label: Text(
-                        'Scan QR Code',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ] else ...[
-                    ElevatedButton.icon(
-                      onPressed: _scanQRCode,
-                      icon: Icon(Icons.qr_code_scanner, color: Colors.white),
-                      label: Text(
-                        'Scan New QR Code',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _unpairDevice,
-                      icon: Icon(Icons.link_off, color: Colors.red),
-                      label: Text(
-                        'Unpair Device',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        side: BorderSide(color: Colors.red),
+                        ),
                       ),
                     ),
                   ],
-                  
-                  SizedBox(height: 24),
-                  
-                  // Instructions
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'How to Pair:',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            '1. Make sure your ESP32 device is powered on\n'
-                            '2. The device should display a QR code\n'
-                            '3. Tap "Scan QR Code" and point your camera at the QR code\n'
-                            '4. The device will be automatically paired to your account',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
     );

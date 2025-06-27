@@ -62,13 +62,29 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         throw Exception('Failed to pair device');
       }
     } catch (e) {
-      // Show error message and allow rescanning
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error pairing device: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      String errorMessage = e.toString();
+      if (errorMessage.contains('No pairing request found')) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Pairing Request Not Found'),
+            content: Text('No pairing request found for this device.\nMake sure your ESP32 is powered on and displaying a QR code.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('Close'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error pairing device: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       setState(() {
         isProcessing = false;
         isScanning = true;
