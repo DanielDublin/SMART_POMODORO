@@ -11,7 +11,7 @@
 // Rotary Encoder
 #define ROT_CLK   26    // Clock
 #define ROT_DT    27    // Data
-#define ROT_SW    4     // Switch/Button 
+#define ROT_SW    -1     // Switch/Button currently doesnt work
 
 // Audio (MAX98357A I2S Amplifier)
 #define I2S_DOUT  13    // Data Out
