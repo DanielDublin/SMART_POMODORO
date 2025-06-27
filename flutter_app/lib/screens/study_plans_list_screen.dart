@@ -309,6 +309,10 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
               return FutureBuilder<String>(
                 future: _calculateUserRank(),
                 builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    // Show nothing or a loading indicator while loading
+                    return SizedBox(width: 32, height: 32);
+                  }
                   final rank = snapshot.data ?? "1";
                   return IconButton(
                     icon: Image.asset(
@@ -322,6 +326,22 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
                         builder: (context) => FutureBuilder<String>(
                           future: _calculateUserRank(),
                           builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return AlertDialog(
+                                title: Text('Profile'),
+                                content: SizedBox(
+                                  width: 64,
+                                  height: 64,
+                                  child: Center(child: CircularProgressIndicator()),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text('Close'),
+                                  ),
+                                ],
+                              );
+                            }
                             final rank = snapshot.data ?? "1";
                             return AlertDialog(
                               title: Text('Profile'),
