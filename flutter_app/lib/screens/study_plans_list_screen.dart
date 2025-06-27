@@ -10,6 +10,7 @@ import 'exam_dashboard_screen.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'pairing_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum SortOption {
   deadline,
@@ -18,10 +19,10 @@ enum SortOption {
 
 class StudyPlansListScreen extends StatefulWidget {
   @override
-  _StudyPlansListScreenState createState() => _StudyPlansListScreenState();
+  StudyPlansListScreenState createState() => StudyPlansListScreenState();
 }
 
-class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
+class StudyPlansListScreenState extends State<StudyPlansListScreen> {
   List<Map<String, dynamic>> studyPlans = [];
   bool isLoading = true;
   String? error;
@@ -30,6 +31,7 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
   bool isGeneratingMockData = false;
   String currentSortBy = 'deadline';
   bool isAscending = true;
+  late Future<String> rankFuture;
 
   void sortStudyPlans(SortOption option) {
     setState(() {
@@ -66,6 +68,8 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
   void initState() {
     super.initState();
     fetchStudyPlans();
+    rankFuture = _calculateUserRank();
+    checkRankOnStartup();
   }
 
   Future<void> fetchStudyPlans() async {
@@ -225,16 +229,44 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
     }
   }
 
+  Future<void> checkAndShowRankUp(BuildContext context, String newRank) async {
+    final prefs = await SharedPreferences.getInstance();
+    final prevRank = prefs.getString('user_rank') ?? '1';
+    if (int.tryParse(newRank) != null && int.tryParse(prevRank) != null) {
+      if (int.parse(newRank) > int.parse(prevRank)) {
+        // Show popup
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => RankUpDialog(rank: newRank, rankTitle: _getRankTitle(newRank)),
+        );
+      }
+    }
+    // Always update stored rank
+    await prefs.setString('user_rank', newRank);
+  }
+
+  Future<void> checkRankOnStartup() async {
+    final rank = await rankFuture;
+    await checkAndShowRankUp(context, rank);
+  }
+
+  void refreshRank() {
+    setState(() {
+      rankFuture = _calculateUserRank();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return CustomScaffold(
-      title: 'My Study Plans',
+      title: 'Plans',
       customAppBar: AppBar(
         backgroundColor: Colors.red,
         elevation: 0,
         leading: null,
-        title: Text('My Study Plans', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        centerTitle: true,
+        title: Text('Plans', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        centerTitle: false,
         actions: [
           PopupMenuButton<SortOption>(
             icon: Row(
@@ -307,7 +339,7 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
             builder: (context) {
               final user = FirebaseAuth.instance.currentUser;
               return FutureBuilder<String>(
-                future: _calculateUserRank(),
+                future: rankFuture,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     // Show nothing or a loading indicator while loading
@@ -324,7 +356,7 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
                       showDialog(
                         context: context,
                         builder: (context) => FutureBuilder<String>(
-                          future: _calculateUserRank(),
+                          future: rankFuture,
                           builder: (context, snapshot) {
                             if (!snapshot.hasData) {
                               return AlertDialog(
@@ -521,7 +553,7 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
                                     onTap: () async {
                                       final currentUser = FirebaseAuth.instance.currentUser;
                                       if (currentUser != null && plan['id'] != null && plan['id'] != '') {
-                                        Navigator.push(
+                                        await Navigator.push(
                                           context,
                                           MaterialPageRoute(
                                             builder: (_) => ExamDashboardScreen(
@@ -530,6 +562,9 @@ class _StudyPlansListScreenState extends State<StudyPlansListScreen> {
                                             ),
                                           ),
                                         );
+                                        // After returning, refresh study plans and rank
+                                        fetchStudyPlans();
+                                        refreshRank();
                                       } else {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(content: Text('Error: Missing user or plan ID')),
@@ -598,6 +633,48 @@ class _NavBarItem extends StatelessWidget {
         SizedBox(height: 2),
         Text(label, style: TextStyle(color: Colors.white, fontSize: 12)),
       ],
+    );
+  }
+}
+
+class RankUpDialog extends StatelessWidget {
+  final String rank;
+  final String rankTitle;
+  const RankUpDialog({required this.rank, required this.rankTitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      contentPadding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.emoji_events, color: Colors.amber, size: 48),
+          SizedBox(height: 12),
+          Text('Congratulations!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+          SizedBox(height: 8),
+          Text("You've reached a new rank!", style: TextStyle(fontSize: 16)),
+          SizedBox(height: 16),
+          Image.asset('assets/mascots/rank$rank.png', width: 80, height: 80),
+          SizedBox(height: 12),
+          Text(
+            rankTitle,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Awesome!'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              minimumSize: Size(double.infinity, 40),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

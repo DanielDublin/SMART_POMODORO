@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 import 'day_summary_screen.dart';
+import 'study_plans_list_screen.dart';
 
 class ExamDashboardScreen extends StatefulWidget {
   final String planId;
@@ -341,11 +342,18 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                           numberOfPomodoros: longBreakAfter,
                         ),
                       ),
-                    ).then((hasChanges) {
+                    ).then((hasChanges) async {
                       if (hasChanges == true) {
                         setState(() {
                           _dashboardData = fetchDashboardData();
                         });
+                        // Refresh study plans and rank on home screen
+                        final homeState = context.findAncestorStateOfType<StudyPlansListScreenState>();
+                        if (homeState != null) {
+                          await homeState.fetchStudyPlans();
+                          homeState.refreshRank();
+                          await homeState.checkRankOnStartup();
+                        }
                       }
                     });
                   },

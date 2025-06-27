@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'study_plans_list_screen.dart';
 
 class DaySummaryScreen extends StatefulWidget {
   final String uid;
@@ -140,6 +142,67 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
     });
   }
 
+  Future<String> _calculateUserRank() async {
+    final user = FirebaseFirestore.instance.collection('users').doc(widget.uid);
+    final logsSnap = await user.collection('session_logs')
+        .where('sessionType', isEqualTo: 'study')
+        .get();
+    final logs = logsSnap.docs.map((doc) => doc.data()).toList();
+    final totalMinutes = logs.fold<int>(0, (sum, log) =>
+      sum + (log['duration'] is int ? log['duration'] as int :
+            (log['duration'] is double ? (log['duration'] as double).toInt() : 0)));
+    final ranks = [
+      {'minutes': 0}, {'minutes': 100}, {'minutes': 300}, {'minutes': 700}, {'minutes': 1500},
+      {'minutes': 3000}, {'minutes': 5000}, {'minutes': 8000}, {'minutes': 12000}, {'minutes': 20000},
+    ];
+    int rankIndex = 0;
+    for (int i = 0; i < ranks.length; i++) {
+      if (totalMinutes >= ranks[i]['minutes']!) {
+        rankIndex = i;
+      } else {
+        break;
+      }
+    }
+    final userRank = (rankIndex + 1).toString();
+    await user.set({'rank': userRank, 'totalStudyMinutes': totalMinutes}, SetOptions(merge: true));
+    return userRank;
+  }
+
+  String _getRankTitle(String rank) {
+    switch (rank) {
+      case "10": return "Pomodoro Pro";
+      case "9": return "Study Sage";
+      case "8": return "Mind Master";
+      case "7": return "Focus Ninja";
+      case "6": return "Strategist";
+      case "5": return "Researcher";
+      case "4": return "Scholar";
+      case "3": return "Apprentice";
+      case "2": return "Sprout";
+      default: return "Seedling";
+    }
+  }
+
+  Future<void> checkAndShowRankUp(BuildContext context, String newRank) async {
+    final prefs = await SharedPreferences.getInstance();
+    final prevRank = prefs.getString('user_rank') ?? '1';
+    if (int.tryParse(newRank) != null && int.tryParse(prevRank) != null) {
+      if (int.parse(newRank) > int.parse(prevRank)) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => RankUpDialog(rank: newRank, rankTitle: _getRankTitle(newRank)),
+        );
+      }
+    }
+    await prefs.setString('user_rank', newRank);
+  }
+
+  Future<void> _handleRankCheck() async {
+    final rank = await _calculateUserRank();
+    await checkAndShowRankUp(context, rank);
+  }
+
   Future<void> _addNewSession() async {
     TimeOfDay? start = await showTimePicker(
       context: context,
@@ -238,6 +301,9 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
             _hasChanges = true;
             _dayData = _fetchDayData();
           });
+
+          // After adding session
+          await _handleRankCheck();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('End time must be after start time')),
@@ -251,6 +317,7 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
+        await _handleRankCheck();
         Navigator.pop(context, _hasChanges);
         return false;
       },
@@ -266,7 +333,10 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
           ),
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context, _hasChanges),
+            onPressed: () async {
+              await _handleRankCheck();
+              Navigator.pop(context, _hasChanges);
+            },
           ),
         ),
         body: FutureBuilder<Map<String, dynamic>>(
@@ -405,6 +475,7 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
                                                         _hasChanges = true;
                                                         _dayData = _fetchDayData();
                                                       });
+                                                      await _handleRankCheck();
                                                     },
                                                   ),
                                               ],
