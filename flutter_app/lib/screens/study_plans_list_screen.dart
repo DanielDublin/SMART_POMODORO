@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/custom_scaffold.dart';
 import '../services/firestore_service.dart';
 import '../services/mock_data_service.dart';
+import '../services/notification_service.dart';
 import 'study_planner_settings_screen.dart';
 import 'exam_dashboard_screen.dart';
 import '../services/auth_service.dart';
@@ -70,6 +71,10 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
     fetchStudyPlans();
     rankFuture = _calculateUserRank();
     checkRankOnStartup();
+    // Add a delay to ensure everything is loaded before checking notifications
+    Future.delayed(Duration(seconds: 2), () {
+      checkDailyReminders();
+    });
   }
 
   Future<void> fetchStudyPlans() async {
@@ -255,6 +260,16 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
     setState(() {
       rankFuture = _calculateUserRank();
     });
+  }
+
+  Future<void> checkDailyReminders() async {
+    try {
+      print('🔔 StudyPlansListScreen: checkDailyReminders() called');
+      await NotificationService.checkAndShowDailyReminder();
+      print('🔔 StudyPlansListScreen: checkDailyReminders() completed');
+    } catch (e) {
+      print('❌ Error checking daily reminders: $e');
+    }
   }
 
   @override

@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/login_screen.dart';
 import 'screens/study_plans_list_screen.dart';
 import 'services/icon_manager.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,10 +24,15 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Initialize notification service
+  await NotificationService.initialize();
+
   // Check icon state on app start
   final user = FirebaseAuth.instance.currentUser;
   if (user != null) {
     await IconManager.checkAndUpdateIcon(user.uid);
+    // Check for daily session reminder
+    await NotificationService.checkAndShowDailyReminder();
   }
 
   runApp(MyApp());
@@ -63,6 +69,8 @@ class MyApp extends StatelessWidget {
   Future<void> _checkIconForUser(User user) async {
     try {
       await IconManager.checkAndUpdateIcon(user.uid);
+      // Check for daily session reminder when user logs in
+      await NotificationService.checkAndShowDailyReminder();
     } catch (e) {
       print('Error checking icon for user: $e');
     }

@@ -319,7 +319,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                   SizedBox(height: 4),
                                   Text(
                                     data['totalPlannedSessions'] > 0
-                                        ? '${(data['totalCompletedSessions'] * 100 / data['totalPlannedSessions']).round()}%'
+                                        ? '${(data['totalCompletedSessions'] * 100 / data['totalPlannedSessions']).clamp(0, 100).round()}%'
                                         : '0%',
                                     style: TextStyle(
                                       fontSize: 20,
