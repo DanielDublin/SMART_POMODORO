@@ -101,15 +101,7 @@ void Screens::userPlansScreen(bool update) {
         names.push_back("Return");
         currentTotalOptions = names.size();
         drawMenu(names, selectedInputIndex, 100, update);
-        //  for (int i = 0; i < sessions.size() - 1; i++) {
-        //     if (i == session.size() - 1) {
-        //         drawMenu(sessions[i], selectedInputIndex, 300, update);        
-        //     }
-        //     else {
-        //         drawMenu(extractNamesFromPairs(sessions), selectedInputIndex, 100, update);
-        //     }
-        // }
-        sessionId = selectedInputIndex != names.size() ? sessions[selectedInputIndex].second : "";
+        sessionId = selectedInputIndex != names.size() - 1 ? sessions[selectedInputIndex].second : "";
         Serial.printf("userPlansScreen sesionIF: %s\n", sessionId);
         lastPollTime = millis();
     }

@@ -26,7 +26,9 @@ class FirestoreService {
         .doc(user.uid)
         .collection('sessions');
 
-    await sessionsRef.add(sessionData);
+    final docRef = sessionsRef.doc();
+    sessionData['sessionId'] = docRef.id;
+    await docRef.set(sessionData);
   }
 
   static Future<void> updateStudySession(String sessionId, Map<String, dynamic> sessionData) async {
