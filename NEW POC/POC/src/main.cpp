@@ -35,7 +35,6 @@ void setup() {
   displayOLEDText("ESP32 POC Ready", 0, OLED_NEW_LINE * 5, 1, true);
   setupNeoPixel();
   screenManager.init();
-  audio.playVibration( 1);
 }
 
 void handleBlueButtonNavigation(bool& needsUpdate) {
