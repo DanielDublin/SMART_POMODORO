@@ -23,6 +23,7 @@ public:
         WIFI_CONNECTION_SCREEN,
         QR_SCREEN,
         USER_PLANS_SCREEN,
+        SESSION_SUMMARY_SCREEN,
     } ScreenChoice;
 
     typedef enum Options {
@@ -40,6 +41,7 @@ public:
     void onlineSessionPlannerScreen(bool update);
     void userPlansScreen(bool update);
     void pomodoroTimerScreen(bool update);
+    void sessionSummaryScreen(bool update);
     bool updateselectedInputIndex(int value);
     void adjustSelectedValue(int delta);
     int getChoice();
@@ -52,7 +54,7 @@ private:
     int selectedInputIndex;
     int currentTotalOptions;
     bool roterySlower;
-    int initValues[4] = {25, 5, 15, 4}; // pomodoroLength, shortBreakLength, longBreakLength, longBreakAfter
+    int initValues[5] = {25, 5, 15, 4, 2}; // pomodoroLength, shortBreakLength, longBreakLength, longBreakAfter, NumberOfPomodoros
     int valuesSize = 4;
     FirebaseJson userData;
     unsigned long pomodoroStartTime;

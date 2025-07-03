@@ -125,6 +125,11 @@ void handleWhiteButtonSelection(bool& needsUpdate) {
           screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
         }
         break;  
+      case Screens::SESSION_SUMMARY_SCREEN:
+        if (choice == RETURN) {
+          screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+        }
+        break;
 
       default:
         break;

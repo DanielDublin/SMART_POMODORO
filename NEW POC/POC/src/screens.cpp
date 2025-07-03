@@ -61,6 +61,8 @@ void Screens::displayCurrentScreen(bool update) {
         wifiNotConnectedScreen(update);
     } else if (currentScreen == USER_PLANS_SCREEN) {
         userPlansScreen(update);
+    } else if (currentScreen == SESSION_SUMMARY_SCREEN) {
+        sessionSummaryScreen(update);
     }
 }
 
@@ -160,7 +162,7 @@ void Screens::onlineSessionPlannerScreen(bool update) {
         std::vector<std::pair<String, String>> sessions = extractSessionNameIdPairs(data);
         sessionId = sessions[0].second;
     }
-    Serial.print("sessiion: ");
+    Serial.print("session: ");
     Serial.println(sessionId);
     if (readSessionData(rawUserData, pairedUid, sessionId)) {
         userData.setJsonData(rawUserData);
@@ -170,6 +172,8 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     }
     Serial.println("---------------------------------------------------------");
     Serial.println(rawUserData);
+    Serial.println("---------------------------------------------------------");
+
     FirebaseJsonData data;
     String deadline, sessionsPerDay, studyDays;
     if (userData.get(data, "fields/pomodoroLength/integerValue")) {
@@ -192,6 +196,7 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     }
     if (userData.get(data, "fields/sessionsPerDay/integerValue")) {
         sessionsPerDay = data.stringValue;
+        initValues[4] = data.intValue;
     }
     if (userData.get(data, "fields/selectedDays/arrayValue/values")) {
         FirebaseJsonArray arr;
@@ -213,6 +218,52 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     displayTFTText(sessionsPerDay, 300, 150, 2, TFT_BLUE, false);
     displayTFTText(studyDays, 300, 200, 2, TFT_BLUE, false);
 
+    drawMenu(options, selectedInputIndex, 250, update);
+}
+
+void Screens::sessionSummaryScreen(bool update) {
+    currentTotalOptions = 1;
+    std::vector<String> options = {"Return"};
+    String prompt = "Sessions Summary";
+
+    displayTFTText(prompt, centerTextX(prompt, 3), 0, 3, TFT_BLUE, false);
+
+    String rankStr = "Rank: 30";    //change from hardcoded
+    displayTFTText(rankStr, 0, 50, 2, TFT_WHITE, false);
+
+    // Calculate and display Time studied
+    unsigned long elapsedSeconds = (isPomodoroRunning && !isPomodoroTimerPaused) 
+        ? (millis() - pomodoroStartTime) / 1000 + pausedElapsedTime / 1000 
+        : 0;
+    int totalMinutes = (currentPomodoroMinutes * 60 - elapsedSeconds) / 60 + (pomodoroCount * currentPomodoroMinutes);
+    String timeStudiedStr = "Time studied: " + String(totalMinutes) + " minutes";
+    displayTFTText(timeStudiedStr, 0, 100, 2, TFT_WHITE, false);
+
+    // Display Completed Sessions
+    int completedSessions = pomodoroCount; // Track completed sessions from Pomodoro cycles
+    String completedSessionsStr = "Completed Sessions: " + String(completedSessions);
+    displayTFTText(completedSessionsStr, 0, 150, 2, TFT_WHITE, false);
+
+
+    int plannedSessions = initValues[4];
+    if (pairingState == PairingState::PAIRED) {
+        // Online mode: Fetch planned sessions from Firebase if available
+        String rawUserData;
+        if (readSessionData(rawUserData, pairedUid, sessionId)) {
+            userData.setJsonData(rawUserData);
+            FirebaseJsonData data;
+            if (userData.get(data, "fields/sessionsPerDay/integerValue") && 
+                userData.get(data, "fields/selectedDays/arrayValue/values")) {
+                FirebaseJsonArray arr;
+                data.getArray(arr);
+                plannedSessions = data.intValue * arr.size(); // Sessions per day * number of days
+            }
+        }
+    }     
+    int progressPercentage = (completedSessions * 100) / (plannedSessions > 0 ? plannedSessions : 1);
+    displayProgressBar(progressPercentage, false); // false for TFT
+
+    // Draw menu options
     drawMenu(options, selectedInputIndex, 250, update);
 }
 
@@ -239,6 +290,7 @@ void Screens::pomodoroTimerScreen(bool update) {
         lastTimerStr = "";
         lastFaceUpdate = millis();
         currentFace = FACE_FOCUSED;
+        pomodoroCount = 0;
         
         clearTFTScreen();
         clearOLEDScreen();
@@ -289,7 +341,13 @@ void Screens::pomodoroTimerScreen(bool update) {
                 displayTFTText("Failed to log session", 0, 200, 2, TFT_RED, false);
             }
         }
-
+        
+        if (pomodoroCount == initValues[4]) {
+            switchScreen(SESSION_SUMMARY_SCREEN);
+            isPomodoroRunning = false;
+            displayCurrentScreen(update);
+            return;
+        }
         if (pomodoroCount % initValues[3] == 0) {
             currentPomodoroMinutes = initValues[2];
             String message = "Long Break Time!";
@@ -376,6 +434,11 @@ int Screens::getChoice() {
         if (sessionId != "")
             return FIRST_OPTION;
         return RETURN;
+    }
+    else if (currentScreen == SESSION_SUMMARY_SCREEN) {
+        if (selectedInputIndex == 0) {
+            return RETURN;
+        }
     }
     return -1; 
 }
