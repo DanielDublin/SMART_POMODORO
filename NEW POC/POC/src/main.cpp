@@ -18,6 +18,7 @@ Screens screenManager(audio);
 
 static bool lastWhiteButtonState = false;
 static Screens::ScreenChoice lastScreen = Screens::CHOOSE_MODE_SCREEN;
+bool isPaired = false;
 
 void setup() {
   Serial.begin(115200);
@@ -38,8 +39,7 @@ void setup() {
 
 void handleBlueButtonNavigation(bool& needsUpdate) {
   if (isBlueButtonPressed()) {
-    screenManager.updateselectedInputIndex(1);
-    needsUpdate = true;
+    needsUpdate = screenManager.updateselectedInputIndex(1);
   }
 }
 
@@ -53,18 +53,17 @@ void handleRotaryAdjustments(int rotaryChange, bool& needsUpdate) {
 
 void handleWhiteButtonSelection(bool& needsUpdate) {
   bool currentWhiteButton = isWhiteButtonPressed();
-
   if (currentWhiteButton && !lastWhiteButtonState) {
     int choice = screenManager.getChoice();
     if (choice == -1) return;
 
     Screens::ScreenChoice currentScreen = screenManager.getCurrentScreen();
-
+      Serial.println(currentScreen);
     switch (currentScreen) {
       case Screens::CHOOSE_MODE_SCREEN:
         if (choice == Screens::ONLINE) {
           screenManager.switchScreen(
-            wifiState != WiFiState::CONNECTED ? Screens::QR_SCREEN : Screens::ONLINE_SESSION_PLANER_SCREEN
+            wifiState == WiFiState::CONNECTED ? Screens::QR_SCREEN : Screens::WIFI_CONNECTION_SCREEN
           );
         } else if (choice == Screens::OFFLINE) {
           screenManager.switchScreen(Screens::OFFLINE_POMODORO_SETTINGS_SCREEN);
@@ -87,7 +86,7 @@ void handleWhiteButtonSelection(bool& needsUpdate) {
           lastScreen = currentScreen;
           screenManager.switchScreen(Screens::POMODORO_TIMER_SCREEN);
         } else if (choice == RETURN) {
-          screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+          screenManager.switchScreen(Screens::USER_PLANS_SCREEN);
         }
         break;
 
@@ -97,6 +96,35 @@ void handleWhiteButtonSelection(bool& needsUpdate) {
           screenManager.switchScreen(lastScreen);
         }
         break;
+
+      case Screens::QR_SCREEN:
+        if (choice == FIRST_OPTION) {
+          screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+        }
+        break;
+
+      case Screens::WIFI_CONNECTION_SCREEN:
+        if (choice == FIRST_OPTION) {
+          screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+        }
+        else if (choice == SECOND_OPTION) {
+          if (wifiState == WiFiState::CONNECTED) {
+            screenManager.switchScreen(Screens::QR_SCREEN);
+          }
+          else {
+            setupWiFi();
+          }
+        }
+        break;
+
+      case Screens::USER_PLANS_SCREEN:
+        if (choice != RETURN) {
+          screenManager.switchScreen(Screens::ONLINE_SESSION_PLANER_SCREEN);
+        }
+        else {
+          screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+        }
+        break;  
 
       default:
         break;
@@ -118,15 +146,23 @@ void updateScreenIfNeeded(bool needsUpdate) {
 void loop() {
   handleButtons();
   processWiFi();
-  processFirebase();
-
+  searchForPair(isPaired);
   bool needsUpdate = false;
   int rotaryChange = handleRotaryEncoder();
-
+  if (isPaired && screenManager.getCurrentScreen() == Screens::QR_SCREEN) {
+    needsUpdate = true;
+    isPaired = false;
+    screenManager.switchScreen(Screens::USER_PLANS_SCREEN);
+  }
   handleBlueButtonNavigation(needsUpdate);
   handleRotaryAdjustments(rotaryChange, needsUpdate);
   handleWhiteButtonSelection(needsUpdate);
-  updateScreenIfNeeded(needsUpdate);
+  if (screenManager.getCurrentScreen() == Screens::USER_PLANS_SCREEN) {
+    screenManager.displayCurrentScreen(needsUpdate);
+  }
+  else {
+    updateScreenIfNeeded(needsUpdate);
+  }
 
   delay(10);  // Prevent watchdog timeout
 }

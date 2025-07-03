@@ -104,9 +104,12 @@ void processWiFi() {
 
     if (timeSyncState == TimeSyncState::PENDING && WiFi.isConnected()) {
         time_t now = time(nullptr);
-        if (now > 8 * 3600) {
+        // if (now > 8 * 3600) {
             if (onTimeSyncedCallback) onTimeSyncedCallback();
-        }
+        // }
+        // else {
+        //     Serial.printf("Couldn't sync time: %ld \n", now);
+        // }
     }
 
     static unsigned long lastTime = 0;

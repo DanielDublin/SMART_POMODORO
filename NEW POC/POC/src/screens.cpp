@@ -17,48 +17,102 @@ void Screens::init() {
     displayCurrentScreen(true);
 }
 
-void Screens::updateselectedInputIndex(int value) {
+bool Screens::updateselectedInputIndex(int value) {
     if (!roterySlower) {
         if (value > 0) {
-            selectedInputIndex++;
-            selectedInputIndex = selectedInputIndex % currentTotalOptions;
+            if (currentTotalOptions <= 1) {
+                return false;
+            }
+            else {
+                selectedInputIndex++;
+                selectedInputIndex = selectedInputIndex % currentTotalOptions;
+            }
         } else {
-            selectedInputIndex--;
-            selectedInputIndex = abs(selectedInputIndex) % currentTotalOptions;
+            if (currentTotalOptions <= 1) {
+                return false;
+            }
+            else {
+                selectedInputIndex--;
+                selectedInputIndex = abs(selectedInputIndex) % currentTotalOptions;
+            }
         }
         audio.playButton(0.7);
         Serial.printf("selectedInputIndex: %d\n", selectedInputIndex);
         displayCurrentScreen(true);
+        return true;
     } else {
         roterySlower = !roterySlower;
+        return true;
     }
 }
 
 void Screens::displayCurrentScreen(bool update) {
     if (currentScreen == CHOOSE_MODE_SCREEN) {
         chooseModeScreen(update);
-    } else if (currentScreen == QR_SCREEN) {
-        qrScreen(update);
-    } else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
-        onlineSessionPlannerScreen(update);
     } else if (currentScreen == OFFLINE_POMODORO_SETTINGS_SCREEN) {
         offlinePomodoroSettingsScreen(update);
+    } else if (currentScreen == ONLINE_SESSION_PLANER_SCREEN) {
+        onlineSessionPlannerScreen(update);
     } else if (currentScreen == POMODORO_TIMER_SCREEN) {
         pomodoroTimerScreen(update);
+    } else if (currentScreen == QR_SCREEN) {
+        qrScreen(update);
+    } else if (currentScreen == WIFI_CONNECTION_SCREEN) {
+        wifiNotConnectedScreen(update);
+    } else if (currentScreen == USER_PLANS_SCREEN) {
+        userPlansScreen(update);
     }
 }
 
 void Screens::chooseModeScreen(bool update) {
+    sessionId = "";
     currentTotalOptions = 2;
-    String options[] = {"Online", "Offline"};
-    drawMenu(options, currentTotalOptions, selectedInputIndex, 200, update);
+    std::vector<String> options = {"Online", "Offline"};
+    drawMenu(options, selectedInputIndex, 200, update);
     String prompt = "Choose Wi-Fi mode:";
     displayTFTText(prompt, centerTextX(prompt, 3), 100, 3, TFT_BLUE, false);
 }
 
 void Screens::qrScreen(bool update) {
-    currentTotalOptions = 0;
+    sessionId = "";
+    currentTotalOptions = 1;
+    std::vector<String> options = {"Return"};
+    drawMenu(options, selectedInputIndex, 300, update);
     png_handler::drawQR();
+    handleInitialPairing();
+}
+
+void Screens::wifiNotConnectedScreen(bool update) {
+    sessionId = "";
+    currentTotalOptions = 2;
+    std::vector<String> options = {"Return", "Retry"};
+    drawMenu(options, selectedInputIndex, 200, update);
+    String prompt = "No network detected, connect to Wi-Fi";
+    displayTFTText(prompt, centerTextX(prompt, 2), 100, 2, TFT_RED, false);
+}
+
+void Screens::userPlansScreen(bool update) {
+    if (millis() - lastPollTime >= POLLING_INTERVAL || update) {
+        String prompt = "Choose Plan";
+        displayTFTText(prompt, centerTextX(prompt, 3), 50, 3, TFT_BLUE, false);
+        String data = processFirebase();
+        std::vector<std::pair<String, String>> sessions = extractSessionNameIdPairs(data);
+        std::vector<String> names = extractNamesFromPairs(sessions);
+        names.push_back("Return");
+        currentTotalOptions = names.size();
+        drawMenu(names, selectedInputIndex, 100, update);
+        //  for (int i = 0; i < sessions.size() - 1; i++) {
+        //     if (i == session.size() - 1) {
+        //         drawMenu(sessions[i], selectedInputIndex, 300, update);        
+        //     }
+        //     else {
+        //         drawMenu(extractNamesFromPairs(sessions), selectedInputIndex, 100, update);
+        //     }
+        // }
+        sessionId = selectedInputIndex != names.size() ? sessions[selectedInputIndex].second : "";
+        Serial.printf("userPlansScreen sesionIF: %s\n", sessionId);
+        lastPollTime = millis();
+    }
 }
 
 void Screens::handleValuesChange(int* value) {
@@ -75,7 +129,7 @@ void Screens::handleValuesChange(int* value) {
 
 void Screens::offlinePomodoroSettingsScreen(bool update) {
     currentTotalOptions = 6;
-    String options[] = {"Confirm", "Return"};
+    std::vector<String> options = {"Confirm", "Return"};
     int optionsSize = sizeof(options) / sizeof(options[0]);
     String prompt = "Settings";
     String pomodoroLenStr = "Pomodoro Duration: ";
@@ -90,12 +144,12 @@ void Screens::offlinePomodoroSettingsScreen(bool update) {
     if (selectedInputIndex < valuesSize) {
         handleValuesChange(&initValues[selectedInputIndex]);
     }
-    drawValues(initValues, valuesSize, options, optionsSize, selectedInputIndex, 50, update);
+    drawValues(initValues, valuesSize, options, selectedInputIndex, 50, update);
 }
 
 void Screens::onlineSessionPlannerScreen(bool update) {
     currentTotalOptions = 2;
-    String options[] = {"Confirm", "Return"};
+    std::vector<String> options = {"Confirm", "Return"};
     
     String prompt = "Session Planner";
     String sessionNameStr = "Session: ";
@@ -108,18 +162,22 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     displayTFTText(sessionsPerDayStr, 0, 150, 2, TFT_BLUE, false);
     displayTFTText(studyDaysStr, 0, 200, 2, TFT_BLUE, false);
 
-    String rawUserData = userData.raw();
-    if (rawUserData.length() == 0) {
-        String data;
-        sessionId = "CVOR7lRCdyVndeWbGjgq"; // Hardcoded for now; consider dynamic selection
-        if (readSessionData(data, pairedUid, sessionId)) {
-            userData.setJsonData(data);
-        } else {
-            displayTFTText("Failed to load session", 0, 250, 2, TFT_RED, false);
-            return;
-        }
+    String rawUserData;
+    if (sessionId == "") {
+        String data = processFirebase();
+        std::vector<std::pair<String, String>> sessions = extractSessionNameIdPairs(data);
+        sessionId = sessions[0].second;
     }
-
+    Serial.print("sessiion: ");
+    Serial.println(sessionId);
+    if (readSessionData(rawUserData, pairedUid, sessionId)) {
+        userData.setJsonData(rawUserData);
+    } else {
+        displayTFTText("Failed to load session", 0, 250, 2, TFT_RED, false);
+        return;
+    }
+    Serial.println("---------------------------------------------------------");
+    Serial.println(rawUserData);
     FirebaseJsonData data;
     String deadline, sessionsPerDay, studyDays;
     if (userData.get(data, "fields/pomodoroLength/integerValue")) {
@@ -163,7 +221,7 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     displayTFTText(sessionsPerDay, 300, 150, 2, TFT_BLUE, false);
     displayTFTText(studyDays, 300, 200, 2, TFT_BLUE, false);
 
-    drawMenu(options, currentTotalOptions, selectedInputIndex, 250, update);
+    drawMenu(options, selectedInputIndex, 250, update);
 }
 
 void Screens::adjustSelectedValue(int delta) {
@@ -178,7 +236,7 @@ void Screens::adjustSelectedValue(int delta) {
 
 void Screens::pomodoroTimerScreen(bool update) {
     currentTotalOptions = 2;
-    String options[] = {"Stop", isPomodoroTimerPaused ? "Resume" : "Pause"};
+    std::vector<String> options = {"Stop", isPomodoroTimerPaused ? "Resume" : "Pause"};
 
     if (!isPomodoroRunning) {
         pomodoroStartTime = millis();
@@ -194,7 +252,7 @@ void Screens::pomodoroTimerScreen(bool update) {
         clearOLEDScreen();
         String sessionType = "Focus Time";
         displayTFTText(sessionType, centerTextX(sessionType, 3), 50, 3, TFT_BLUE, false);
-        drawMenu(options, currentTotalOptions, selectedInputIndex, 250, true);
+        drawMenu(options, selectedInputIndex, 250, true);
         displayOLEDFace(currentFace);
     }
     
@@ -253,7 +311,7 @@ void Screens::pomodoroTimerScreen(bool update) {
         displayOLEDFace(currentFace);
         pomodoroStartTime = millis();
         lastFaceUpdate = millis();
-        drawMenu(options, currentTotalOptions, selectedInputIndex, 250, true);
+        drawMenu(options, selectedInputIndex, 250, true);
         return;
     }
 
@@ -268,7 +326,7 @@ void Screens::pomodoroTimerScreen(bool update) {
     }
 
     if (update) {
-        drawMenu(options, currentTotalOptions, selectedInputIndex, 250, false);
+        drawMenu(options, selectedInputIndex, 250, false);
     }
 }
 
@@ -309,7 +367,25 @@ int Screens::getChoice() {
             return -1;
         }
     }
-    return -1;
+    else if (currentScreen == QR_SCREEN){
+        if (selectedInputIndex == FIRST_OPTION) {
+            return FIRST_OPTION;
+        }
+    }
+    else if (currentScreen == WIFI_CONNECTION_SCREEN){
+        if (selectedInputIndex == FIRST_OPTION) {
+            return FIRST_OPTION;
+        }
+        if (selectedInputIndex == SECOND_OPTION) {
+            return SECOND_OPTION;
+        }
+    }
+    else if (currentScreen == USER_PLANS_SCREEN) {
+        if (sessionId != "")
+            return FIRST_OPTION;
+        return RETURN;
+    }
+    return -1; 
 }
 
 Screens::ScreenChoice Screens::getCurrentScreen() {
@@ -320,4 +396,37 @@ void Screens::switchScreen(ScreenChoice nextScreen) {
     clearTFTScreen();
     selectedInputIndex = 0;
     currentScreen = nextScreen;
+}
+
+std::vector<std::pair<String, String>> Screens::extractSessionNameIdPairs(const String& jsonString) {
+    std::vector<std::pair<String, String>> sessionPairs;
+    StaticJsonDocument<4096> doc;
+
+    DeserializationError error = deserializeJson(doc, jsonString);
+    if (error) {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.f_str());
+        return sessionPairs;
+    }
+
+    JsonArray documents = doc["documents"].as<JsonArray>();
+    for (JsonObject doc : documents) {
+        JsonObject fields = doc["fields"];
+
+        if (fields.containsKey("sessionName") && fields.containsKey("sessionId")) {
+            const char* name = fields["sessionName"]["stringValue"];
+            const char* id = fields["sessionId"]["stringValue"];
+            sessionPairs.push_back(std::make_pair(String(name), String(id)));
+        }
+    }
+
+    return sessionPairs;
+}
+
+std::vector<String> Screens::extractNamesFromPairs(const std::vector<std::pair<String, String>>& pairs) {
+    std::vector<String> names;
+    for (const auto& p : pairs) {
+        names.push_back(p.first);
+    }
+    return names;
 }

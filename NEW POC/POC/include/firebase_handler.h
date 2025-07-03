@@ -18,7 +18,9 @@ enum class PairingState {
 
 // Function prototypes
 void initFirebase();
-void processFirebase();
+String processFirebase();
+void handleInitialPairing();
+void searchForPair(bool& paired);
 bool readSessionData(String& data, const String& userId, const String& sessionId);
 bool writeSessionLog(const String& userId, const String& logId, FirebaseJson& json);
 

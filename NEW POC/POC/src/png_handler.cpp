@@ -18,7 +18,6 @@ void png_handler::drawQR()
 
     int pngWidth = png.getWidth();
     int pngHeight = png.getHeight();
-        
     // Border thickness
     int borderWidth = 3;
 

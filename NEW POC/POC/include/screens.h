@@ -6,6 +6,7 @@
 #include "firebase_handler.h"
 #include "audio_handler.h"
 #include "png_handler.h"
+#include <vector>
 
 #define FIRST_OPTION 0
 #define SECOND_OPTION 1
@@ -16,11 +17,12 @@ class Screens {
 public:
     typedef enum ScreenChoice {
         CHOOSE_MODE_SCREEN,
-        WIFI_CONNECTION_SCREEN,
-        QR_SCREEN,
         OFFLINE_POMODORO_SETTINGS_SCREEN,
         ONLINE_SESSION_PLANER_SCREEN,
-        POMODORO_TIMER_SCREEN
+        POMODORO_TIMER_SCREEN,
+        WIFI_CONNECTION_SCREEN,
+        QR_SCREEN,
+        USER_PLANS_SCREEN,
     } ScreenChoice;
 
     typedef enum Options {
@@ -33,10 +35,12 @@ public:
     void displayCurrentScreen(bool update);
     void chooseModeScreen(bool update);
     void qrScreen(bool update);
+    void wifiNotConnectedScreen(bool update);
     void offlinePomodoroSettingsScreen(bool update);
     void onlineSessionPlannerScreen(bool update);
+    void userPlansScreen(bool update);
     void pomodoroTimerScreen(bool update);
-    void updateselectedInputIndex(int value);
+    bool updateselectedInputIndex(int value);
     void adjustSelectedValue(int delta);
     int getChoice();
     ScreenChoice getCurrentScreen();
@@ -63,5 +67,9 @@ private:
     unsigned long lastFaceUpdate;
     FaceType currentFace;
     const unsigned long FACE_UPDATE_INTERVAL = 10000;
+    const unsigned long POLLING_INTERVAL = 5000;
+    unsigned long lastPollTime = 0;
+    static std::vector<std::pair<String, String>> extractSessionNameIdPairs(const String& jsonString);
+    static std::vector<String> extractNamesFromPairs(const std::vector<std::pair<String, String>>& pairs);
 };
 #endif

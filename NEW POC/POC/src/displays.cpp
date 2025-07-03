@@ -189,13 +189,13 @@ int centerTextX(const String& text, int textSize) {
   return (ILI_SCREEN_WIDTH - text.length() * charWidth) / 2;
 }
 
-void drawMenu(const String options[], int numOfOptions, int selected, int startY, bool redraw) {
+void drawMenu(const std::vector<String> options, int selected, int startY, bool redraw) {
   static int lastSelected = -1;  // Keep track of last selected item
   
   // Calculate maximum width needed for any option
   int maxWidth = 0;
   int textSize = 2;  // Text size used for menu items
-  for (int i = 0; i < numOfOptions; i++) {
+  for (int i = 0; i < options.size(); i++) {
     int width = options[i].length() * 6 * textSize;  // 6 pixels per char at size 1
     if (width > maxWidth) {
       maxWidth = width;
@@ -205,7 +205,7 @@ void drawMenu(const String options[], int numOfOptions, int selected, int startY
   // Add padding for the box
   maxWidth += 8;  // 4 pixels padding on each side
   
-  for (int i = 0; i < numOfOptions; i++) {
+  for (int i = 0; i < options.size(); i++) {
     // Only redraw if it's a full redraw or if this item's selection state has changed
     if (redraw || i == selected || i == lastSelected) {
       uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
@@ -222,7 +222,7 @@ void drawMenu(const String options[], int numOfOptions, int selected, int startY
   lastSelected = selected;  // Remember current selection for next time
 }
 
-void drawValues(int values[], int valuesSize, const String options[], int optionsSize, int selected, int startY, bool redraw) {
+void drawValues(int values[], int valuesSize, const std::vector<String> options, int selected, int startY, bool redraw) {
   static int lastSelected = -1;  // Keep track of last selected item
   
   // Draw values
@@ -236,7 +236,7 @@ void drawValues(int values[], int valuesSize, const String options[], int option
   }
   
   // Draw options
-  for (int i = valuesSize; i < optionsSize + valuesSize; i++) {
+  for (int i = valuesSize; i < options.size() + valuesSize; i++) {
     if (redraw || i == selected || i == lastSelected) {
       uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
       int x = centerTextX(options[i - valuesSize], 2);

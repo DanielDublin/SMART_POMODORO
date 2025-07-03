@@ -29,6 +29,7 @@ const unsigned long POLLING_INTERVAL = 5000;
 unsigned long lastPollTime = 0;
 
 void initFirebase() {
+    Serial.printf("init FireBase\n");
     if (timeSyncState != TimeSyncState::SYNCED || wifiState != WiFiState::CONNECTED) {
         Serial.println("Cannot init Firebase: WiFi or time not ready");
         return;
@@ -76,8 +77,11 @@ void initFirebase() {
         displayOLEDText("Firebase.begin failed after retries", 0, OLED_NEW_LINE*3, 1, false);
         return;
     }
+}
 
+void handleInitialPairing() {
     displayOLEDText("Creating pairing request...", 0, OLED_NEW_LINE*0, 1, true);
+    Serial.println("Creating pairing request...");
     FirebaseJson json;
 
     time_t now = time(nullptr);
@@ -95,7 +99,6 @@ void initFirebase() {
     String path = "pairing_requests/" + deviceId;
     if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), json.raw())) {
         Serial.println("Pairing request created in Firestore");
-        png_handler::drawQR();
         pairingState = PairingState::PENDING;
         lastPollTime = millis();
     } else {
@@ -124,7 +127,7 @@ void handlePairedUserId(String userId) {
     displayOLEDText(userId, 0, OLED_NEW_LINE*2, 1, false);
 }
 
-void processFirebase() {
+void searchForPair(bool& paired) {
     if (timeSyncState != TimeSyncState::READY || wifiState != WiFiState::CONNECTED) {
         return;
     }
@@ -164,17 +167,10 @@ void processFirebase() {
             Serial.println(status);
 
             if (status == "approved" && !uid.isEmpty() && !userId.isEmpty()) {
-                Serial.print("Payload: ");
-                Serial.println(fbdo.payload()); // Print payload only on approval
+                pairingState = PairingState::PAIRED;
+                paired = true;
                 pairedUid = uid;
                 pairedUserId = userId;
-                Serial.print("Pairing approved! UID: ");
-                Serial.println(pairedUid);
-                Serial.print("User ID: ");
-                Serial.println(pairedUserId);
-                pairingState = PairingState::PAIRED;
-
-
                 // Handle user_id (save to SPIFFS and display)
                 handlePairedUserId(pairedUserId);
 
@@ -185,29 +181,47 @@ void processFirebase() {
                     Serial.print("Failed to delete pairing request: ");
                     Serial.println(fbdo.errorReason());
                 }
-
-                // Fetch session data
-                String sessionPath = "users/" + pairedUid + "/sessions";
-                Serial.print("Fetching session from: ");
-                Serial.println(sessionPath);
-                if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", sessionPath.c_str(), "")) {
-                    Serial.print("Session payload: ");
-                    Serial.println(fbdo.payload());
-                } else {
-                    Serial.print("Failed to fetch session: ");
-                    Serial.println(fbdo.errorReason());
-                }
             } else if (status == "rejected") {
                 Serial.println("Pairing rejected");
                 pairingState = PairingState::UNPAIRED;
-            } else {
+            }
+            else {
                 Serial.println("Status not approved or rejected, continuing to poll...");
             }
-        } else {
+        }
+        else {
             Serial.print("Failed to get document: ");
             Serial.println(fbdo.errorReason());
         }
         lastPollTime = millis();
+    }
+}
+
+String processFirebase() {
+    if (timeSyncState != TimeSyncState::READY || wifiState != WiFiState::CONNECTED) {
+        return "";
+    }
+
+    if (!Firebase.ready()) {
+        Serial.println("Firebase not ready, reconnecting...");
+        Firebase.begin(&config, &auth);
+        return "";
+    }
+
+    if (pairingState != PairingState::PAIRED) {
+        return "";
+    }
+    String sessionPath = "users/" + pairedUid + "/sessions";
+    Serial.print("Fetching session from: ");
+    Serial.println(sessionPath);
+    if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", sessionPath.c_str(), "")) {
+        // Serial.print("Session payload: ");
+        // Serial.println(fbdo.payload());
+        return fbdo.payload();
+    } else {
+        Serial.print("Failed to fetch session: ");
+        Serial.println(fbdo.errorReason());
+        return fbdo.errorReason();
     }
 }
 
@@ -224,8 +238,8 @@ bool readSessionData(String& data, const String& userId, const String& sessionId
 
     if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), "")) {
         data = fbdo.payload();
-        Serial.print("Session data retrieved: ");
-        Serial.println(data);
+        // Serial.print("Session data retrieved: ");
+        // Serial.println(data);
         return true;
     } else {
         Serial.print("Failed to read session: ");

@@ -6,6 +6,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <vector>
 #include "config.h"
 #include "Faces.h"  // Include the anime faces
 
@@ -40,8 +41,8 @@ void displayProgressBar(int percentage, bool onOLED = true);
 void clearTFTScreen();
 void drawTextWithBox(const String& text, int x, int y, int size, uint16_t textColor, uint16_t boxColor);
 int centerTextX(const String& text, int textSize);
-void drawMenu(const String options[], int numOfOptions, int selected, int startY,  bool redraw);
-void drawValues(int values[], int valuesSize, const String options[], int optionsSize, int selected, int startY,  bool redraw);
+void drawMenu(const std::vector<String> options, int selected, int startY,  bool redraw);
+void drawValues(int values[], int valuesSize, const std::vector<String> options, int selected, int startY,  bool redraw);
 // Animation functions
 void showOLEDAnimation(int animationId);
 void showTFTAnimation(int animationId);
