@@ -269,7 +269,7 @@ void Screens::pomodoroTimerScreen(bool update) {
     if (totalSeconds <= 0) {
         clearTFTScreen();
         clearOLEDScreen();
-        audio.playCharSound(true, 0.4);
+        audio.playVibration(true, 0.4);
         pomodoroCount++;
         lastTimerStr = "";
         
