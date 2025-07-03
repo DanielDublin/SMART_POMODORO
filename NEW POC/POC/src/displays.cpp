@@ -121,9 +121,9 @@ void displayProgressBar(int percentage, bool onOLED) {
     oled.display();
   } else {
     int barWidth = (percentage * tft.width()) / 100;
-    tft.drawRect(0, tft.height() - 10, tft.width(), 8, TFT_WHITE);
-    tft.fillRect(0, tft.height() - 10, barWidth, 8, TFT_BLUE);
-    tft.setCursor(0, 0);
+    tft.drawRect(0, 200, tft.width(), 8, TFT_WHITE);
+    tft.fillRect(0, 200, barWidth, 8, TFT_BLUE);
+    tft.setCursor(220, 220);
     tft.print(percentage);
     tft.print("%");
   }

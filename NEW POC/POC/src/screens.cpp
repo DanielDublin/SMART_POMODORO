@@ -94,18 +94,20 @@ void Screens::wifiNotConnectedScreen(bool update) {
 }
 
 void Screens::userPlansScreen(bool update) {
-    if (millis() - lastPollTime >= POLLING_INTERVAL || update) {
+    static String data = "";
+    if (millis() - lastPollTime >= POLLING_INTERVAL) {
+        data = processFirebase();
+        lastPollTime = millis();
+    }
+    if (update) {
         String prompt = "Choose Plan";
         displayTFTText(prompt, centerTextX(prompt, 3), 50, 3, TFT_BLUE, false);
-        String data = processFirebase();
         std::vector<std::pair<String, String>> sessions = extractSessionNameIdPairs(data);
         std::vector<String> names = extractNamesFromPairs(sessions);
         names.push_back("Return");
         currentTotalOptions = names.size();
         drawMenu(names, selectedInputIndex, 100, update);
         sessionId = selectedInputIndex != names.size() - 1 ? sessions[selectedInputIndex].second : "";
-        Serial.printf("userPlansScreen sesionIF: %s\n", sessionId);
-        lastPollTime = millis();
     }
 }
 
@@ -235,7 +237,7 @@ void Screens::sessionSummaryScreen(bool update) {
     unsigned long elapsedSeconds = (isPomodoroRunning && !isPomodoroTimerPaused) 
         ? (millis() - pomodoroStartTime) / 1000 + pausedElapsedTime / 1000 
         : 0;
-    int totalMinutes = (currentPomodoroMinutes * 60 - elapsedSeconds) / 60 + (pomodoroCount * currentPomodoroMinutes);
+    int totalMinutes = currentPomodoroMinutes * initValues[4];
     String timeStudiedStr = "Time studied: " + String(totalMinutes) + " minutes";
     displayTFTText(timeStudiedStr, 0, 100, 2, TFT_WHITE, false);
 
@@ -280,7 +282,7 @@ void Screens::adjustSelectedValue(int delta) {
 void Screens::pomodoroTimerScreen(bool update) {
     currentTotalOptions = 2;
     std::vector<String> options = {"Stop", isPomodoroTimerPaused ? "Resume" : "Pause"};
-
+    static CurrentTimer currentCount;
     if (!isPomodoroRunning) {
         pomodoroStartTime = millis();
         isPomodoroRunning = true;
@@ -291,7 +293,8 @@ void Screens::pomodoroTimerScreen(bool update) {
         lastFaceUpdate = millis();
         currentFace = FACE_FOCUSED;
         pomodoroCount = 0;
-        
+        currentCount = STUDY;
+
         clearTFTScreen();
         clearOLEDScreen();
         String sessionType = "Focus Time";
@@ -319,10 +322,26 @@ void Screens::pomodoroTimerScreen(bool update) {
     int remainingSeconds = totalSeconds % 60;
 
     if (totalSeconds <= 0) {
+        Serial.println("----------------------totalSeconds <= 0-------------------------");
         clearTFTScreen();
         clearOLEDScreen();
         audio.playVibration(1);
-        pomodoroCount++;
+        if (currentCount == STUDY) {
+            Serial.println("---------------------- in if currentCount == STUDY-------------------------");
+            pomodoroCount++;
+            if (pomodoroCount % initValues[3] == 0) {
+                Serial.println("----------------------currentCount == LONG_BREAK-------------------------");
+                currentCount = LONG_BREAK;
+            }
+            else {
+                Serial.println("----------------------currentCount == SHORT_BREAK-------------------------");
+                currentCount = SHORT_BREAK;
+            }
+        }
+        else {
+            Serial.println("----------------------in else currentCount == STUDY-------------------------");
+            currentCount = STUDY;
+        }
         lastTimerStr = "";
         
         if (pairingState == PairingState::PAIRED && currentScreen == POMODORO_TIMER_SCREEN) {
@@ -343,19 +362,26 @@ void Screens::pomodoroTimerScreen(bool update) {
         }
         
         if (pomodoroCount == initValues[4]) {
+            Serial.println("----------------------pomodoroCount == initValues[4]-------------------------");
             switchScreen(SESSION_SUMMARY_SCREEN);
             isPomodoroRunning = false;
             displayCurrentScreen(update);
             return;
         }
-        if (pomodoroCount % initValues[3] == 0) {
+        if (currentCount == LONG_BREAK) {
+            Serial.println("############################# currentCount == LONG_BREAK ##########################");
             currentPomodoroMinutes = initValues[2];
             String message = "Long Break Time!";
             displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
-        } else {
+        } else if (currentCount == SHORT_BREAK) {
+            Serial.println("############################# currentCount == SHORT_BREAK ##########################");
             currentPomodoroMinutes = initValues[1];
             String message = "Short Break Time!";
             displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
+        }
+        else {
+            String sessionType = "Focus Time";
+            displayTFTText(sessionType, centerTextX(sessionType, 3), 50, 3, TFT_BLUE, false);
         }
         currentFace = FACE_TIRED;
         displayOLEDFace(currentFace);

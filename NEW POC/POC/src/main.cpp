@@ -151,6 +151,7 @@ void updateScreenIfNeeded(bool needsUpdate) {
 void loop() {
   handleButtons();
   processWiFi();
+  updateNeoPixelEffects();
   searchForPair(isPaired);
   bool needsUpdate = false;
   int rotaryChange = handleRotaryEncoder();

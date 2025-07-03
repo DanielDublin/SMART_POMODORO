@@ -41,8 +41,8 @@ void updateNeoPixelEffects() {
   if (isRotaryButtonPressed()) {
     effectMode = (effectMode + 1) % 4; // Cycle through effects
     effectStep = 0;
-    Serial.print("NeoPixel effect changed to: ");
-    Serial.println(effectMode);
+    // Serial.print("NeoPixel effect changed to: ");
+    // Serial.println(effectMode);
     delay(200); // Prevent rapid mode changes
   }
   

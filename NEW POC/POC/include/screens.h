@@ -28,9 +28,15 @@ public:
 
     typedef enum Options {
         ONLINE,
-        OFFLINE
+        OFFLINE,
     } Options;
 
+    typedef enum CurrentTimer {
+        SHORT_BREAK,
+        LONG_BREAK,
+        STUDY,
+    } CurrentTimer;
+    
     Screens(Audio& audio);
     void init();
     void displayCurrentScreen(bool update);

@@ -20,6 +20,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
   int _sessionsPerDay = 4;
   int _pomodoroLength = 25;
   int _shortBreakLength = 5;
+  int _longBreakLength = 10;
   int _numberOfPomodoros = 4;
   Set<DateTime> _selectedDays = {};
   DateTime _focusedDay = DateTime.now();
@@ -35,7 +36,8 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
       _sessionsPerDay = widget.existingPlan!['sessionsPerDay'] ?? 4;
       _pomodoroLength = widget.existingPlan!['pomodoroLength'] ?? 25;
       _shortBreakLength = widget.existingPlan!['shortBreakLength'] ?? 5;
-      _numberOfPomodoros = widget.existingPlan!['longBreakAfter'] ?? 4;
+      _longBreakLength = widget.existingPlan!['longBreakLength'] ?? 10;
+      _numberOfPomodoros = widget.existingPlan!['numberOfPomodoros'] ?? 4;
       if (widget.existingPlan!['selectedDays'] != null) {
         _selectedDays = (widget.existingPlan!['selectedDays'] as List)
             .map((timestamp) => DateTime((timestamp as Timestamp).toDate().year,
@@ -352,6 +354,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
         'selectedDays': _selectedDays.map((date) => Timestamp.fromDate(date)).toList(),
         'pomodoroLength': _pomodoroLength,
         'shortBreakLength': _shortBreakLength,
+        'longBreakLength': _longBreakLength,
         'numberOfPomodoros': _numberOfPomodoros,
         'isActive': true,
       };
@@ -471,7 +474,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                     onTap: () => _showNumberPicker(
                       title: 'Pomodoro Length (minutes)',
                       value: _pomodoroLength,
-                      min: 10,
+                      min: 1,
                       max: 90,
                       onChanged: (v) => setState(() => _pomodoroLength = v),
                       unit: 'min',
@@ -484,7 +487,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                     onTap: () => _showNumberPicker(
                       title: 'Number of Pomodoros',
                       value: _numberOfPomodoros,
-                      min: 2,
+                      min: 1,
                       max: 10,
                       onChanged: (v) => setState(() => _numberOfPomodoros = v),
                       unit: 'pomodoros',
@@ -503,6 +506,19 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                       unit: 'min',
                     ),
                   ),
+              _SettingsTile(
+                icon: Icons.free_breakfast,
+                label: 'Long Break Duration',
+                value: '$_longBreakLength minutes',
+                onTap: () => _showNumberPicker(
+                  title: 'Long Break Duration (minutes)',
+                  value: _longBreakLength,
+                  min: 1,
+                  max: 30,
+                  onChanged: (v) => setState(() => _longBreakLength = v),
+                  unit: 'min',
+                ),
+              ),
                   SizedBox(height: 28),
                   SizedBox(
                     width: double.infinity,

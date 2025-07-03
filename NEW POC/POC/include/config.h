@@ -21,7 +21,7 @@
 // NeoPixel LED Strip
 #define LED_PIN   33    // Data pin
 #define NUM_LEDS   2     // Number of LEDs
-#define BRIGHTNESS 0  // Brightness (0-255)
+#define BRIGHTNESS 20  // Brightness (0-255)
 
 // Push Buttons
 #define BUTTON_BLUE  21     //was 36 UN
