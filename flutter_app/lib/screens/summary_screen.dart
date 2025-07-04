@@ -35,13 +35,27 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     print('Found ${activePlans.docs.length} active study plans');
 
-    // If no plans have isActive field, update all existing plans to be active
+    // If no plans have isActive field, check if there are any plans at all
     if (activePlans.docs.isEmpty) {
       final allPlansSnap = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('sessions')
           .get();
+      
+      // If there are no plans at all, return empty data
+      if (allPlansSnap.docs.isEmpty) {
+        print('No study plans found for user');
+        return {
+          'planCount': 0,
+          'totalCompletedSessions': 0,
+          'totalPlannedSessions': 0,
+          'planSummaries': [],
+          'userRank': '1',
+          'totalStudyMinutes': 0,
+          'hasNoPlans': true, // Flag to indicate no plans exist
+        };
+      }
       
       // Update all existing plans to be active
       final batch = FirebaseFirestore.instance.batch();
@@ -70,13 +84,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final selectedDays = (data['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toList() ?? [];
       final pomodoroLength = (data['pomodoroLength'] as num?)?.toInt() ?? 25;
       final sessionsPerDay = (data['sessionsPerDay'] as num?)?.toInt() ?? 1;
-      final longBreakAfter = (data['longBreakAfter'] as num?)?.toInt() ?? 4;
+      final numberOfPomodoros = (data['numberOfPomodoros'] as num?)?.toInt() ?? 4;
 
       print('Plan details:');
       print('- Selected days: ${selectedDays.length}');
       print('- Sessions per day: $sessionsPerDay');
       print('- Pomodoro length: $pomodoroLength');
-      print('- Long break after: $longBreakAfter');
+      print('- Number of pomodoros: $numberOfPomodoros');
+      print('- Number of pomodoros: $numberOfPomodoros');
 
       // Calculate total planned sessions for this plan
       final totalPlanSessions = selectedDays.length * sessionsPerDay;
@@ -106,7 +121,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       totalStudyMinutes += totalDuration;
       
       print('Total duration for this plan: $totalDuration minutes');
-      final completedSessions = (totalDuration / (pomodoroLength * longBreakAfter)).floor();
+      final completedSessions = (totalDuration / (pomodoroLength * numberOfPomodoros)).floor();
       print('Completed sessions for this plan: $completedSessions');
 
       // Update totals
@@ -119,7 +134,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       // Calculate progress percentage
       final progress = totalPlanSessions > 0 
-          ? (completedSessions / totalPlanSessions * 100).round()
+          ? (completedSessions / totalPlanSessions * 100).clamp(0, 100).round()
           : 0;
 
       // Get last active time
@@ -242,6 +257,24 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
           final data = snapshot.data!;
           final planSummaries = List<Map<String, dynamic>>.from(data['planSummaries']);
+          final hasNoPlans = data['hasNoPlans'] ?? false;
+
+          // If user has no study plans at all, show a message
+          if (hasNoPlans) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.menu_book, size: 80, color: Colors.grey[300]),
+                  SizedBox(height: 24),
+                  Text(
+                    'No study plans available.',
+                    style: TextStyle(fontSize: 18, color: Colors.blueGrey[700]),
+                  ),
+                ],
+              ),
+            );
+          }
 
           return SingleChildScrollView(
             child: Column(

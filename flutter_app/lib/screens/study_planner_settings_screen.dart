@@ -74,6 +74,8 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        insetPadding: EdgeInsets.zero,
+        contentPadding: EdgeInsets.zero,
         title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
         content: StatefulBuilder(
           builder: (context, setStateDialog) => Row(
@@ -130,9 +132,8 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Select Exam Deadline', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: double.infinity,
-          height: 400,
+        content: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: 400),
           child: StatefulBuilder(
             builder: (context, setStateDialog) => TableCalendar(
               firstDay: firstDay,
@@ -198,7 +199,7 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
               setState(() {
                 _examDeadline = DateTime(tempSelectedDay.year, tempSelectedDay.month, tempSelectedDay.day);
                 _lastDay = _examDeadline!;
-                _selectedDays.clear();
+                // Don't clear selected days when changing exam deadline
               });
               Navigator.pop(context);
             },
@@ -234,9 +235,8 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Select Days to Study', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: double.infinity,
-          height: 400,
+        content: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: 400),
           child: StatefulBuilder(
             builder: (context, setStateDialog) => TableCalendar(
               firstDay: _firstDay,
@@ -347,6 +347,43 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
         );
         return;
       }
+
+      // Check for passed days
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final passedDays = _selectedDays.where((day) => day.isBefore(today)).toList();
+      
+      if (passedDays.isNotEmpty) {
+        // Show confirmation dialog for passed days
+        final shouldContinue = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Study Days Have Passed', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: Text(
+              'Some of your selected study days have already passed:\n\n'
+              '${passedDays.map((d) => DateFormat('dd/MM/yyyy').format(d)).join(', ')}\n\n'
+              'Are you sure you want to save this study plan?',
+              style: TextStyle(fontSize: 16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Save Anyway'),
+              ),
+            ],
+          ),
+        );
+        
+        if (shouldContinue != true) {
+          return; // User cancelled
+        }
+      }
+
       final sessionData = {
         'sessionName': _studySessionNameController.text.trim(),
         'examDeadline': _examDeadline,
@@ -354,7 +391,6 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
         'selectedDays': _selectedDays.map((date) => Timestamp.fromDate(date)).toList(),
         'pomodoroLength': _pomodoroLength,
         'shortBreakLength': _shortBreakLength,
-        'longBreakLength': _longBreakLength,
         'numberOfPomodoros': _numberOfPomodoros,
         'isActive': true,
       };
@@ -453,7 +489,15 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                    onTap: _examDeadline == null ? null : _showDaysPicker,
+                    onTap: () {
+                      if (_examDeadline == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Please set an exam deadline first before selecting study days')),
+                        );
+                      } else {
+                        _showDaysPicker();
+                      }
+                    },
                   ),
                   _SettingsTile(
                     icon: Icons.repeat,
@@ -506,32 +550,218 @@ class _StudyPlannerSettingsScreenState extends State<StudyPlannerSettingsScreen>
                       unit: 'min',
                     ),
                   ),
-              _SettingsTile(
-                icon: Icons.free_breakfast,
-                label: 'Long Break Duration',
-                value: '$_longBreakLength minutes',
-                onTap: () => _showNumberPicker(
-                  title: 'Long Break Duration (minutes)',
-                  value: _longBreakLength,
-                  min: 1,
-                  max: 30,
-                  onChanged: (v) => setState(() => _longBreakLength = v),
-                  unit: 'min',
-                ),
-              ),
-                  SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _saveSettings,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      child: Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
+                  _SettingsTile(
+                    icon: Icons.free_breakfast,
+                    label: 'Long Break Duration',
+                    value: '$_longBreakLength minutes',
+                    onTap: () => _showNumberPicker(
+                      title: 'Long Break Duration (minutes)',
+                      value: _longBreakLength,
+                      min: 1,
+                      max: 30,
+                      onChanged: (v) => setState(() => _longBreakLength = v),
+                      unit: 'min',
                     ),
+                  ),
+                  SizedBox(height: 28),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: _saveSettings,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            child: Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => Dialog(
+                                  insetPadding: EdgeInsets.symmetric(horizontal: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                'Your Daily Study Plan Structure',
+                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                              ),
+                                              IconButton(
+                                                icon: Icon(Icons.close_rounded, color: Colors.grey[700]),
+                                                onPressed: () => Navigator.pop(context),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          height: 420,
+                                          child: SingleChildScrollView(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: List.generate(_sessionsPerDay, (sessionIdx) {
+                                                return Container(
+                                                  margin: EdgeInsets.only(bottom: 18),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red[50],
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    border: Border.all(color: Colors.red.shade100, width: 2),
+                                                  ),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                                      children: [
+                                                        Text(
+                                                          'Session ${sessionIdx + 1}',
+                                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red[800]),
+                                                        ),
+                                                        SizedBox(height: 12),
+                                                        ...List.generate(_numberOfPomodoros, (pomIdx) {
+                                                          return Container(
+                                                            margin: EdgeInsets.only(bottom: pomIdx < _numberOfPomodoros - 1 ? 8.0 : 0.0),
+                                                            padding: EdgeInsets.all(8.0),
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.white,
+                                                              borderRadius: BorderRadius.circular(12),
+                                                              boxShadow: [
+                                                                BoxShadow(
+                                                                  color: Colors.black12,
+                                                                  blurRadius: 4,
+                                                                  offset: Offset(0, 2),
+                                                                ),
+                                                              ],
+                                                              border: Border.all(color: Colors.grey.shade200),
+                                                            ),
+                                                            child: Column(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                Text(
+                                                                  'Pomodoro ${pomIdx + 1}',
+                                                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey[700]),
+                                                                ),
+                                                                SizedBox(height: 6),
+                                                                Row(
+                                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                                  children: [
+                                                                    FittedBox(
+                                                                      fit: BoxFit.scaleDown,
+                                                                      child: Container(
+                                                                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                                        decoration: BoxDecoration(
+                                                                          color: Colors.red[600],
+                                                                          borderRadius: BorderRadius.circular(20),
+                                                                        ),
+                                                                        child: Row(
+                                                                          mainAxisSize: MainAxisSize.min,
+                                                                          children: [
+                                                                            Icon(Icons.access_time, color: Colors.white, size: 16),
+                                                                            SizedBox(width: 4),
+                                                                            Text('${_pomodoroLength} min Study', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                                                                          ],
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    SizedBox(width: 6),
+                                                                    Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey[400], size: 16),
+                                                                    SizedBox(width: 6),
+                                                                    FittedBox(
+                                                                      fit: BoxFit.scaleDown,
+                                                                      child: Container(
+                                                                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                                        decoration: BoxDecoration(
+                                                                          color: Colors.green[500],
+                                                                          borderRadius: BorderRadius.circular(20),
+                                                                        ),
+                                                                        child: Row(
+                                                                          mainAxisSize: MainAxisSize.min,
+                                                                          children: [
+                                                                            Icon(Icons.free_breakfast, color: Colors.white, size: 16),
+                                                                            SizedBox(width: 4),
+                                                                            Text('${_shortBreakLength} min Short Break', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                                                                          ],
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        }),
+                                                        SizedBox(height: 12),
+                                                        Container(
+                                                          width: 2,
+                                                          height: 30,
+                                                          color: Colors.grey[300],
+                                                        ),
+                                                        SizedBox(height: 12),
+                                                        FittedBox(
+                                                          fit: BoxFit.scaleDown,
+                                                          child: Container(
+                                                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.blue[500],
+                                                              borderRadius: BorderRadius.circular(20),
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                Icon(Icons.hourglass_empty, color: Colors.white, size: 20),
+                                                                SizedBox(width: 6),
+                                                                Text('${_longBreakLength} min Long Break', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              }),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            child: Text('VISUALIZE DAY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

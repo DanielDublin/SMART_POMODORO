@@ -43,19 +43,30 @@ class FirestoreService {
         .update(sessionData);
   }
 
-  static Future<List<Map<String, dynamic>>> getStudySessions() async {
+  static Future<List<Map<String, dynamic>>> getStudySessions({String? sortBy, bool? ascending}) async {
     try {
       final user = _auth.currentUser;
       if (user == null) throw Exception("No user logged in");
 
-      final sessionsSnapshot = await _firestore
+      Query query = _firestore
           .collection('users')
           .doc(user.uid)
-          .collection('sessions')
-          .get();
+          .collection('sessions');
+
+      // Apply sorting based on parameters
+      if (sortBy == 'deadline') {
+        query = query.orderBy('examDeadline', descending: ascending == false);
+      } else if (sortBy == 'name') {
+        query = query.orderBy('sessionName', descending: ascending == false);
+      } else {
+        // Default sorting by creation date
+        query = query.orderBy('createdAt', descending: false);
+      }
+
+      final sessionsSnapshot = await query.get();
 
       return sessionsSnapshot.docs.map((doc) {
-        final data = doc.data();
+        final data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;  // Include document ID
         return data;
       }).toList();

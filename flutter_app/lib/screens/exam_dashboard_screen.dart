@@ -63,7 +63,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
     final sessionsPerDay = _getInt(plan['sessionsPerDay'], 1);
     final sessionLength = _getInt(plan['sessionLength'], 25);
     final pomodoroLength = _getInt(plan['pomodoroLength'], 25);
-    final longBreakAfter = _getInt(plan['longBreakAfter'], 4);
+    final numberOfPomodoros = _getInt(plan['numberOfPomodoros'], 4);
     final planStart = (plan['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now().subtract(Duration(days: 30));
 
     // Fetch user data to get rank
@@ -96,19 +96,6 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
       logsByDay.putIfAbsent(key, () => []).add(log);
     }
 
-    // --- Consistency streak ---
-    int streak = 0;
-    DateTime streakDay = DateTime.now();
-    while (true) {
-      final key = DateFormat('yyyy-MM-dd').format(streakDay);
-      if ((logsByDay[key]?.isNotEmpty ?? false)) {
-        streak++;
-        streakDay = streakDay.subtract(Duration(days: 1));
-      } else {
-        break;
-      }
-    }
-
     // --- Weekly stats ---
     final weekLogs = List<Map<String, dynamic>>.from(logs).where((l) {
       final d = (l['startTime'] as Timestamp).toDate();
@@ -121,6 +108,31 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
     final selectedDays = (plan['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toSet() ?? {};
     Set<String> studyDayKeys = selectedDays.map((d) => DateFormat('yyyy-MM-dd').format(d)).toSet();
 
+    // --- Consistency streak ---
+    int streak = 0;
+    DateTime streakDay = DateTime.now().subtract(Duration(days: 1)); // Start from yesterday
+    int maxDaysToCheck = 365; // Prevent infinite loop
+    int daysChecked = 0;
+    
+    while (daysChecked < maxDaysToCheck) {
+      final key = DateFormat('yyyy-MM-dd').format(streakDay);
+      final hasSessionLogs = logsByDay[key]?.isNotEmpty ?? false;
+      final isStudyDay = studyDayKeys.contains(key);
+      
+      if (hasSessionLogs) {
+        // User studied this day (planned or unplanned) - count it
+        streak++;
+        streakDay = streakDay.subtract(Duration(days: 1));
+      } else if (isStudyDay) {
+        // User missed a planned study day - streak ends
+        break;
+      } else {
+        // Not a study day and no logs - skip this day, continue checking
+        streakDay = streakDay.subtract(Duration(days: 1));
+      }
+      daysChecked++;
+    }
+
     return {
       'plan': plan,
       'logs': logs,
@@ -128,10 +140,11 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
       'sessionsPerDay': sessionsPerDay,
       'sessionLength': sessionLength,
       'pomodoroLength': pomodoroLength,
-      'longBreakAfter': longBreakAfter,
+      'numberOfPomodoros': numberOfPomodoros,
       'planStart': planStart,
       'userRank': userRank,
       'totalStudyMinutes': totalStudyMinutes,
+      'streak': streak,
     };
   }
 
@@ -173,10 +186,11 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
           final sessionsPerDay = snapshot.data!['sessionsPerDay'];
           final sessionLength = snapshot.data!['sessionLength'];
           final pomodoroLength = snapshot.data!['pomodoroLength'];
-          final longBreakAfter = snapshot.data!['longBreakAfter'];
+          final numberOfPomodoros = snapshot.data!['numberOfPomodoros'];
           final planStart = snapshot.data!['planStart'];
           final userRank = snapshot.data!['userRank'];
           final totalStudyMinutes = snapshot.data!['totalStudyMinutes'];
+          final streak = snapshot.data!['streak'];
 
           final selectedDays = (plan['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toSet() ?? {};
           Set<String> studyDayKeys = selectedDays.map((d) => DateFormat('yyyy-MM-dd').format(d)).toSet();
@@ -188,19 +202,6 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
             final d = (log['startTime'] as Timestamp).toDate();
             final key = DateFormat('yyyy-MM-dd').format(d);
             logsByDay.putIfAbsent(key, () => []).add(log);
-          }
-
-          // --- Consistency streak ---
-          int streak = 0;
-          DateTime streakDay = DateTime.now();
-          while (true) {
-            final key = DateFormat('yyyy-MM-dd').format(streakDay);
-            if ((logsByDay[key]?.isNotEmpty ?? false)) {
-              streak++;
-              streakDay = streakDay.subtract(Duration(days: 1));
-            } else {
-              break;
-            }
           }
 
           // --- Weekly stats ---
@@ -218,7 +219,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
           final todayDate = DateTime(now.year, now.month, now.day);
 
           // Calculate expectedDay and number of selectedDays
-          final expectedDay = pomodoroLength * longBreakAfter * sessionsPerDay;
+          final expectedDay = pomodoroLength * numberOfPomodoros * sessionsPerDay;
           final selectedDaysList = selectedDays.toList();
           final totalSelectedDays = selectedDaysList.length;
           final totalExpectedMinutes = expectedDay * totalSelectedDays;
@@ -339,7 +340,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                           selectedDate: date,
                           expectedSessions: sessionsPerDay,
                           pomodoroLength: pomodoroLength,
-                          numberOfPomodoros: longBreakAfter,
+                          numberOfPomodoros: numberOfPomodoros,
                         ),
                       ),
                     ).then((hasChanges) async {
@@ -366,19 +367,27 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                     ),
                     height: 56,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('$dayNum', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('$dayNum', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        ),
                         if (isStudyDay && isPast)
-                          Text('($progressText)', style: TextStyle(fontSize: 10, color: Colors.white)),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('($progressText)', style: TextStyle(fontSize: 10, color: Colors.white)),
+                          ),
                         if (hasUnplannedStudy)
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(horizontal: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
                             child: Text(
                               '$unplannedMinutes min',
-                              style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w500),
+                              style: TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold),
                               textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                       ],
@@ -428,7 +437,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                       SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'DASHBOARD',
+                          plan['sessionName'] ?? 'Unnamed Plan',
                           style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,

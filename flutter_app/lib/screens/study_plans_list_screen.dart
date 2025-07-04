@@ -41,28 +41,19 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
       } else {
         isAscending = true;
       }
+      
       switch (option) {
         case SortOption.deadline:
-          studyPlans.sort((a, b) {
-            final aDeadline = a['examDeadline'] as Timestamp?;
-            final bDeadline = b['examDeadline'] as Timestamp?;
-            if (aDeadline == null && bDeadline == null) return 0;
-            if (aDeadline == null) return 1;
-            if (bDeadline == null) return -1;
-            return isAscending ? aDeadline.compareTo(bDeadline) : bDeadline.compareTo(aDeadline);
-          });
           currentSortBy = 'deadline';
           break;
         case SortOption.name:
-          studyPlans.sort((a, b) {
-            final aName = (a['sessionName'] ?? '').toString().toLowerCase();
-            final bName = (b['sessionName'] ?? '').toString().toLowerCase();
-            return isAscending ? aName.compareTo(bName) : bName.compareTo(aName);
-          });
           currentSortBy = 'name';
           break;
       }
     });
+    
+    // Fetch data with new sorting
+    fetchStudyPlans();
   }
 
   @override
@@ -84,17 +75,12 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
         error = null;
       });
       
-      final sessions = await FirestoreService.getStudySessions();
+      final sessions = await FirestoreService.getStudySessions(
+        sortBy: currentSortBy,
+        ascending: isAscending,
+      );
       setState(() {
         studyPlans = sessions;
-        switch (currentSortBy) {
-          case 'deadline':
-            sortStudyPlans(SortOption.deadline);
-            break;
-          case 'name':
-            sortStudyPlans(SortOption.name);
-            break;
-        }
         isLoading = false;
       });
     } catch (e) {
@@ -135,8 +121,22 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
 
   Future<void> deleteStudyPlan(String planId) async {
     try {
+      // Delete all session_logs with sessionPlanId == planId
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final logsSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('session_logs')
+            .where('sessionPlanId', isEqualTo: planId)
+            .get();
+        for (final doc in logsSnap.docs) {
+          await doc.reference.delete();
+        }
+      }
       await FirestoreService.deleteStudySession(planId);
       await fetchStudyPlans(); // Refresh the list
+      refreshRank(); // Recalculate user rank
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Study plan deleted')),
       );
@@ -473,17 +473,8 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
                   : Column(
                       children: [
                         Expanded(
-                          child: ReorderableListView.builder(
+                          child: ListView.builder(
                             itemCount: studyPlans.length,
-                            onReorder: (oldIndex, newIndex) {
-                              setState(() {
-                                if (newIndex > oldIndex) {
-                                  newIndex -= 1;
-                                }
-                                final item = studyPlans.removeAt(oldIndex);
-                                studyPlans.insert(newIndex, item);
-                              });
-                            },
                             itemBuilder: (context, index) {
                               final plan = studyPlans[index];
                               return Dismissible(
@@ -554,8 +545,7 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
                                       },
                                     );
                                     if (confirm == true && plan['id'] != null) {
-                                      await FirestoreService.deleteStudySession(plan['id']);
-                                      await fetchStudyPlans();
+                                      await deleteStudyPlan(plan['id']);
                                     }
                                     return false;
                                   }
@@ -588,14 +578,7 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
                                     },
                                     borderRadius: BorderRadius.circular(12),
                                     child: ListTile(
-                                      leading: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.drag_handle, color: Colors.grey),
-                                          SizedBox(width: 8),
-                                          Icon(Icons.menu_book, color: Colors.red, size: 32),
-                                        ],
-                                      ),
+                                      leading: Icon(Icons.menu_book, color: Colors.red, size: 32),
                                       title: Text(
                                         plan['sessionName'] ?? 'Unnamed Session',
                                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),

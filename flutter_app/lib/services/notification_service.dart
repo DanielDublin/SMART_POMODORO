@@ -233,4 +233,48 @@ class NotificationService {
   static Future<void> cancelDailyReminder() async {
     await _notifications.cancel(1);
   }
+
+  static Future<void> showExitNotification(List<String> planNames) async {
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        'exit_reminder_channel',
+        'Exit Study Reminders',
+        channelDescription: 'Reminders when leaving app without completing sessions',
+        importance: Importance.high,
+        priority: Priority.high,
+        showWhen: true,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      String notificationMessage;
+      if (planNames.length == 1) {
+        notificationMessage = 'You left the app without completing your daily session for "${planNames[0]}"';
+      } else {
+        notificationMessage = 'You left the app without completing your daily sessions for: ${planNames.join(", ")}';
+      }
+
+      debugPrint('Showing exit notification: $notificationMessage');
+
+      await _notifications.show(
+        2, // Unique ID for exit reminder (different from daily reminder)
+        'Daily Session Incomplete',
+        notificationMessage,
+        details,
+      );
+      
+      debugPrint('Exit notification sent successfully');
+    } catch (e) {
+      debugPrint('Error showing exit notification: $e');
+    }
+  }
 } 

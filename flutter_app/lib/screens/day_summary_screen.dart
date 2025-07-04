@@ -38,6 +38,21 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
   }
 
   Future<Map<String, dynamic>> _fetchDayData() async {
+    // First, get the study plan to check if this day is a planned study day
+    final planSnap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.uid)
+        .collection('sessions')
+        .doc(widget.planId)
+        .get();
+    
+    final plan = planSnap.data()!;
+    final selectedDays = (plan['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toSet() ?? {};
+    
+    // Check if the selected date is a planned study day
+    final selectedDateKey = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day);
+    final isStudyDay = selectedDays.contains(selectedDateKey);
+    
     final logsSnap = await FirebaseFirestore.instance
         .collection('users')
         .doc(widget.uid)
@@ -59,7 +74,8 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
       return startTime.isAfter(startOfDay.subtract(const Duration(milliseconds: 1))) && startTime.isBefore(endOfDay);
     }).toList();
     
-    final expectedMinutes = widget.expectedSessions * widget.pomodoroLength * widget.numberOfPomodoros;
+    // Set expected minutes to 0 if it's not a planned study day
+    final expectedMinutes = isStudyDay ? widget.expectedSessions * widget.pomodoroLength * widget.numberOfPomodoros : 0;
     final actualMinutes = filteredLogs.fold<int>(0, (sum, log) => sum + (log['duration'] as int? ?? 0));
     final completionPercentage = expectedMinutes > 0 ? (actualMinutes / expectedMinutes * 100).clamp(0.0, 100.0) : 0.0;
 
@@ -68,6 +84,7 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
       'expectedMinutes': expectedMinutes,
       'actualMinutes': actualMinutes,
       'completionPercentage': completionPercentage,
+      'isStudyDay': isStudyDay,
     };
   }
 
@@ -354,6 +371,7 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
             final expectedMinutes = data['expectedMinutes'];
             final actualMinutes = data['actualMinutes'];
             final completionPercentage = data['completionPercentage'];
+            final isStudyDay = data['isStudyDay'];
 
             return SingleChildScrollView(
               child: Padding(
@@ -371,17 +389,19 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Text('Daily Study Goal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                            if (!isStudyDay)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  'Today is not a planned study day',
+                                  style: TextStyle(fontSize: 14, color: Colors.orange[700], fontWeight: FontWeight.w500),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             SizedBox(height: 18),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                Column(
-                                  children: [
-                                    Text('Expected', style: TextStyle(fontSize: 14, color: Colors.black87)),
-                                    SizedBox(height: 4),
-                                    Text('$expectedMinutes min', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black)),
-                                  ],
-                                ),
                                 Column(
                                   children: [
                                     Text('Actual', style: TextStyle(fontSize: 14, color: Colors.red)),
@@ -389,23 +409,32 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
                                     Text('$actualMinutes min', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
                                   ],
                                 ),
+                                Column(
+                                  children: [
+                                    Text('Expected', style: TextStyle(fontSize: 14, color: Colors.black87)),
+                                    SizedBox(height: 4),
+                                    Text('$expectedMinutes min', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black)),
+                                  ],
+                                ),
                               ],
                             ),
-                            SizedBox(height: 18),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: LinearProgressIndicator(
-                                minHeight: 10,
-                                value: expectedMinutes > 0 ? (actualMinutes / expectedMinutes).clamp(0.0, 1.0) : 0.0,
-                                backgroundColor: Colors.grey[300],
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                            if (isStudyDay) ...[
+                              SizedBox(height: 18),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: LinearProgressIndicator(
+                                  minHeight: 10,
+                                  value: expectedMinutes > 0 ? (actualMinutes / expectedMinutes).clamp(0.0, 1.0) : 0.0,
+                                  backgroundColor: Colors.grey[300],
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                                ),
                               ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              '${completionPercentage.toStringAsFixed(0)}% of daily goal completed',
-                              style: TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w500),
-                            ),
+                              SizedBox(height: 8),
+                              Text(
+                                '${completionPercentage.toStringAsFixed(0)}% of daily goal completed',
+                                style: TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w500),
+                              ),
+                            ],
                           ],
                         ),
                       ),

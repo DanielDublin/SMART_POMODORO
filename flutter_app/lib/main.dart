@@ -8,6 +8,7 @@ import 'screens/login_screen.dart';
 import 'screens/study_plans_list_screen.dart';
 import 'services/icon_manager.dart';
 import 'services/notification_service.dart';
+import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +39,37 @@ void main() async {
   runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  bool _hasShownNotificationThisSession = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _resetNotificationFlag();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('🔄 App lifecycle state changed to: $state');
+  }
+
+  void _resetNotificationFlag() {
+    _hasShownNotificationThisSession = false;
+    print('🔄 Reset notification flag for new session');
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -57,6 +88,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.hasData && snapshot.data != null) {
             // Check icon state when user logs in
             _checkIconForUser(snapshot.data!);
+            _resetNotificationFlag(); // Reset notification flag for new user session
             return StudyPlansListScreen();
           }
           
