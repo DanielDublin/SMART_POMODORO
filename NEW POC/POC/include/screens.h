@@ -36,7 +36,8 @@ public:
         LONG_BREAK,
         STUDY,
     } CurrentTimer;
-    
+
+    char startTime[30];
     Screens(Audio& audio);
     void init();
     void displayCurrentScreen(bool update);

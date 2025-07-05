@@ -254,7 +254,7 @@ bool writeSessionLog(const String& userId, const String& logId, FirebaseJson& js
         return false;
     }
 
-    String path = "users/" + userId + "/session_logs/" + logId;
+    String path = "users/" + userId + "/session_logs/";
     Serial.print("Writing session log to: ");
     Serial.println(path);
 
@@ -267,3 +267,4 @@ bool writeSessionLog(const String& userId, const String& logId, FirebaseJson& js
         return false;
     }
 }
+

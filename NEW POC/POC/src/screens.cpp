@@ -7,7 +7,14 @@ Screens::Screens(Audio& audio) : audio(audio), currentScreen(CHOOSE_MODE_SCREEN)
                                 isPomodoroRunning(false), isPomodoroTimerPaused(false), pausedElapsedTime(0),
                                 pomodoroCount(0), lastTimerStr(""),
                                 sessionName(""), sessionId(""),
-                                lastFaceUpdate(0), currentFace(FACE_FOCUSED) {}
+                                lastFaceUpdate(0), currentFace(FACE_FOCUSED) {
+
+                                time_t now = time(nullptr);
+                                char timestamp[30];
+                                strftime(startTime, sizeof(startTime), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+
+
+                                }
                                 
 
 void Screens::init() {
@@ -166,14 +173,14 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     
     String prompt = "Session Planner";
     String sessionNameStr = "Session: ";
-    String deadlineStr = "Deadline: ";
-    String sessionsPerDayStr = "Sessions per day: ";
-    String studyDaysStr = "Study days: ";
+    String pomodoroLength = "Pomodoro Length: ";
+    String numberOfPomodoros = "Number Of Pomodoros: ";
+    String shortBreakLength = "Short Break Length: ";
     displayTFTText(prompt, centerTextX(prompt, 3), 0, 3, TFT_BLUE, false);
     displayTFTText(sessionNameStr, 0, 50, 2, TFT_BLUE, false);
-    displayTFTText(deadlineStr, 0, 100, 2, TFT_BLUE, false);
-    displayTFTText(sessionsPerDayStr, 0, 150, 2, TFT_BLUE, false);
-    displayTFTText(studyDaysStr, 0, 200, 2, TFT_BLUE, false);
+    displayTFTText(pomodoroLength, 0, 100, 2, TFT_BLUE, false);
+    displayTFTText(numberOfPomodoros, 0, 150, 2, TFT_BLUE, false);
+    displayTFTText(shortBreakLength, 0, 200, 2, TFT_BLUE, false);
 
     String rawUserData;
     if (sessionId == "") {
@@ -197,9 +204,11 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     String deadline, sessionsPerDay, studyDays;
     if (userData.get(data, "fields/pomodoroLength/integerValue")) {
         initValues[0] = data.intValue;
+        pomodoroLength = data.stringValue;
     }
     if (userData.get(data, "fields/shortBreakLength/integerValue")) {
         initValues[1] = data.intValue;
+        shortBreakLength = data.stringValue;
     }
     if (userData.get(data, "fields/longBreakLength/integerValue")) {
         initValues[2] = data.intValue;
@@ -216,6 +225,7 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     if (userData.get(data, "fields/sessionsPerDay/integerValue")) {
         sessionsPerDay = data.stringValue;
         initValues[4] = data.intValue;
+        numberOfPomodoros = data.stringValue;
     }
     if (userData.get(data, "fields/selectedDays/arrayValue/values")) {
         FirebaseJsonArray arr;
@@ -356,13 +366,13 @@ void Screens::pomodoroTimerScreen(bool update) {
         }
         lastTimerStr = "";
         
-        if (pairingState == PairingState::PAIRED && currentScreen == POMODORO_TIMER_SCREEN) {
+        if (pairingState == PairingState::PAIRED && currentScreen == POMODORO_TIMER_SCREEN && currentCount == STUDY){
             FirebaseJson json;
             time_t now = time(nullptr);
             char timestamp[30];
-            strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+            strftime(startTime, sizeof(startTime), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
             json.set("fields/endTime/timestampValue", String(timestamp));
-            json.set("fields/startTime/timestampValue", String(timestamp));
+            json.set("fields/startTime/timestampValue", String(startTime));
             json.set("fields/duration/integerValue", initValues[0]);
             json.set("fields/sessionType/stringValue", "study");
             json.set("fields/sessionPlanId/stringValue", sessionId);
