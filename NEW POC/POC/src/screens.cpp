@@ -361,10 +361,11 @@ void Screens::pomodoroTimerScreen(bool update) {
             time_t now = time(nullptr);
             char timestamp[30];
             strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
-            json.set("fields/completedAt/timestampValue", String(timestamp));
+            json.set("fields/endTime/timestampValue", String(timestamp));
+            json.set("fields/startTime/timestampValue", String(timestamp));
             json.set("fields/duration/integerValue", initValues[0]);
-            json.set("fields/type/stringValue", pomodoroCount % initValues[3] == 0 ? "long_break" : pomodoroCount % 2 == 0 ? "short_break" : "pomodoro");
-            json.set("fields/sessionName/stringValue", sessionName);
+            json.set("fields/sessionType/stringValue", "study");
+            json.set("fields/sessionPlanId/stringValue", sessionId);
             String logId = "log_" + String(timestamp);
             if (writeSessionLog(pairedUid, logId, json)) {
                 displayTFTText("Session logged!", 0, 200, 2, TFT_GREEN, false);

@@ -16,6 +16,9 @@ void setupWiFi() {
     Serial.begin(115200);
     WiFi.mode(WIFI_STA);
 
+    setenv("TZ", "IST-3", 1); // IDT is UTC+3
+    tzset(); // Apply TZ settings
+
     // wm.resetSettings(); // Uncomment for testing
 
     wm.setConfigPortalBlocking(false);
@@ -31,7 +34,7 @@ void setupWiFi() {
         Serial.println("Time synchronized!");
         time_t now = time(nullptr);
         struct tm timeinfo;
-        gmtime_r(&now, &timeinfo);
+        localtime_r(&now, &timeinfo);
         Serial.print("Current time: ");
         Serial.println(asctime(&timeinfo));
         timeSyncState = TimeSyncState::SYNCED;
@@ -104,12 +107,13 @@ void processWiFi() {
 
     if (timeSyncState == TimeSyncState::PENDING && WiFi.isConnected()) {
         time_t now = time(nullptr);
-        // if (now > 8 * 3600) {
+        // Check if time is beyond a reasonable threshold (e.g., after 2020)
+        if (now > 1577836800) { // 2020-01-01 00:00:00 UTC
             if (onTimeSyncedCallback) onTimeSyncedCallback();
-        // }
-        // else {
-        //     Serial.printf("Couldn't sync time: %ld \n", now);
-        // }
+        } else {
+            // Optionally retry NTP sync
+            configTime(3 * 3600, 0, "il.pool.ntp.org");
+        }
     }
 
     static unsigned long lastTime = 0;
