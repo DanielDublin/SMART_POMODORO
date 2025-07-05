@@ -86,12 +86,12 @@ void Screens::qrScreen(bool update) {
     sessionId = "";
     currentTotalOptions = 1;
     std::vector<String> options = {"Return"};
-    drawMenu(options, selectedInputIndex, 50, update);
+    drawMenu(options, selectedInputIndex, 220, update);
     png_handler::drawQR();
     handleInitialPairing();
 
     if (update) {
-        startMascotDialogue("Scan the QR to pair with your device!");
+        startMascotDialogue("Scan the QR to pair with your device! Or press the white button to return.");
         updateMascotDialogue();
     }
 }

@@ -18,6 +18,10 @@ int animationFrame = 0;
 unsigned long lastAnimationUpdate = 0;
 const int ANIMATION_SPEED = 100; // ms between frames
 
+int col = 0;
+int row = 0;
+String wordBuffer = "";
+
 // Simple logo bitmap for animation demo
 static const unsigned char PROGMEM logo_bmp[] = {
   0b00000000, 0b11000000,

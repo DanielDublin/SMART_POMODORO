@@ -18,16 +18,14 @@ void png_handler::drawQR()
 
     int pngWidth = png.getWidth();
     int pngHeight = png.getHeight();
-    // Border thickness
-    int borderWidth = 3;
 
-    // Calculate center position
-    xpos = (ILI_SCREEN_WIDTH - pngWidth - 2 * borderWidth) / 2 + borderWidth;
-    ypos = (ILI_SCREEN_HIEGHT - pngHeight - 2 * borderWidth) / 2 + borderWidth;
+    // Calculate center position for x, top-aligned for y
+    xpos = (ILI_SCREEN_WIDTH - pngWidth) / 2; // Center horizontally, no border
+    ypos = 0; // Align top edge with screen top, no border
 
-    tft.fillRect(xpos - borderWidth, ypos - borderWidth, 
-                pngWidth + (2 * borderWidth), pngHeight + (2 * borderWidth), 
-                TFT_BLACK);
+    // Clear only the exact area needed for the QR code
+    tft.fillRect(xpos, ypos, pngWidth, pngHeight, TFT_BLACK);
+
     tft.startWrite();
     uint32_t dt = millis();
     rc = png.decode(NULL, 0);

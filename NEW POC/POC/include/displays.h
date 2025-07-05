@@ -63,6 +63,6 @@ extern SPIClass *vspi;
 extern Adafruit_SSD1306 oled;
 extern TFT_eSPI tft;
 
-static int col = 0;
-static int row = 0;
-static String wordBuffer = "";
+extern int col;
+extern int row;
+extern String wordBuffer;
