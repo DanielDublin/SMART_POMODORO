@@ -113,9 +113,3 @@ flutter_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/icon.png"
   remove: true  # Remove old icons before generating new ones
-  # Android alternate icons
-  android_alt_icons:
-    gloomy:
-      image_path: "assets/icon/icon_gloomy.png"
-      adaptive_icon_background: "#FFFFFF"
-      adaptive_icon_foreground: "assets/icon/icon_gloomy.png"

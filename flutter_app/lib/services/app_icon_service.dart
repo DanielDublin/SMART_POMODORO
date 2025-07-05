@@ -5,16 +5,6 @@ import 'dart:io' show Platform;
 class AppIconService {
   static const platform = MethodChannel('com.iot.technion.smart_pomodoro/app_icon');
 
-  static Future<void> setGloomyIcon() async {
-    if (!Platform.isIOS) return; // Only proceed on iOS
-    try {
-      await platform.invokeMethod('setAlternateIcon', 'gloomy');
-    } catch (e) {
-      debugPrint('Failed to set gloomy icon: $e');
-      // Silently fail on unsupported platforms
-    }
-  }
-
   static Future<void> setNormalIcon() async {
     if (!Platform.isIOS) return; // Only proceed on iOS
     try {

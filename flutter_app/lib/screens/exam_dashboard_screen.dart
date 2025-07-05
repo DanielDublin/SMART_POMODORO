@@ -226,21 +226,29 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
           final totalActualMinutes = logs.fold<int>(0, (sum, l) => sum + _getInt(l['duration'], 0));
           // Cap readiness score at 100%
           final rawReadinessScore = totalExpectedMinutes == 0 ? 0 : (totalActualMinutes / totalExpectedMinutes * 100);
-          final readinessScore = rawReadinessScore.clamp(0, 100);
-
-          // For current expected (to determine status): only consider selectedDays whose date is strictly less than today
-          final pastSelectedDays = selectedDaysList.where((d) => d.isBefore(todayDate)).length;
-          final currentExpectedMinutes = expectedDay * pastSelectedDays;
+          final pastSelectedDaysList = selectedDaysList.where((d) => d.isBefore(todayDate)).toList();
+          final currentExpectedMinutes = expectedDay * pastSelectedDaysList.length;
           final currentReadinessScore = currentExpectedMinutes == 0
               ? (totalActualMinutes > 0 ? 100 : 0)
               : (totalActualMinutes / currentExpectedMinutes * 100);
+          final clampedReadinessScore = rawReadinessScore.clamp(0, 100);
 
           String status;
           IconData statusIcon;
           Color statusColor;
-          
-          // Only show completed if raw score is >= 100
-          if (rawReadinessScore >= 100) {
+
+          // Fix: If no selectedDays in the past, user is On Track, unless they have studied (then they are Ahead)
+          if (pastSelectedDaysList.isEmpty) {
+            if (totalActualMinutes > 0) {
+              status = 'Ahead';
+              statusIcon = Icons.trending_up;
+              statusColor = Colors.green;
+            } else {
+              status = 'On Track';
+              statusIcon = Icons.check_circle;
+              statusColor = Colors.blue;
+            }
+          } else if (rawReadinessScore >= 100) {
             status = 'Completed';
             statusIcon = Icons.emoji_events;
             statusColor = Colors.amber[700]!;
@@ -500,12 +508,12 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                         CircularPercentIndicator(
                           radius: 60,
                           lineWidth: 12,
-                          percent: (readinessScore / 100).clamp(0, 1),
+                          percent: (clampedReadinessScore / 100),
                           center: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('${readinessScore.toInt()}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
-                              Text('${totalSelectedDays - pastSelectedDays} Days Left', style: TextStyle(fontSize: 12)),
+                              Text('${clampedReadinessScore.toInt()}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+                              Text('${totalSelectedDays - pastSelectedDaysList.length} Days Left', style: TextStyle(fontSize: 12)),
                             ],
                           ),
                           progressColor: Colors.red,

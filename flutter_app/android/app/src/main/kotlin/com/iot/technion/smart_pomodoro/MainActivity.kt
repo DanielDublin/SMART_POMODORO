@@ -15,23 +15,13 @@ class MainActivity: FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "setAlternateIcon" -> {
-                    val iconName = call.argument<String?>("iconName")
+                    // Always use normal icon
                     try {
                         val pm = packageManager
                         val normalIcon = ComponentName(packageName, "$packageName.MainActivity")
-                        val gloomyIcon = ComponentName(packageName, "$packageName.MainActivityGloomy")
                         
-                        // Disable all icons first
-                        pm.setComponentEnabledSetting(normalIcon, 
-                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED, 
-                            PackageManager.DONT_KILL_APP)
-                        pm.setComponentEnabledSetting(gloomyIcon, 
-                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED, 
-                            PackageManager.DONT_KILL_APP)
-                        
-                        // Enable the selected icon
-                        val selectedIcon = if (iconName == "gloomy") gloomyIcon else normalIcon
-                        pm.setComponentEnabledSetting(selectedIcon,
+                        // Ensure normal icon is enabled
+                        pm.setComponentEnabledSetting(normalIcon,
                             PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                             PackageManager.DONT_KILL_APP)
                             

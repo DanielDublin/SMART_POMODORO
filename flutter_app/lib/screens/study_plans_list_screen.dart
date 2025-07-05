@@ -34,6 +34,9 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
   bool isAscending = true;
   late Future<String> rankFuture;
 
+  // Popup control
+  static bool _motivationPopupShown = false;
+
   void sortStudyPlans(SortOption option) {
     setState(() {
       if (currentSortBy == option.toString().split('.').last) {
@@ -74,7 +77,6 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
         isLoading = true;
         error = null;
       });
-      
       final sessions = await FirestoreService.getStudySessions(
         sortBy: currentSortBy,
         ascending: isAscending,
@@ -83,6 +85,8 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
         studyPlans = sessions;
         isLoading = false;
       });
+      // After plans are loaded, check and show motivational popup
+      _checkAndShowMotivationPopupAfterAllLoaded();
     } catch (e) {
       setState(() {
         error = e.toString();
@@ -269,6 +273,147 @@ class StudyPlansListScreenState extends State<StudyPlansListScreen> {
       print('🔔 StudyPlansListScreen: checkDailyReminders() completed');
     } catch (e) {
       print('❌ Error checking daily reminders: $e');
+    }
+  }
+
+  Future<void> _checkAndShowMotivationPopupAfterAllLoaded() async {
+    if (_motivationPopupShown) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    if (studyPlans.isEmpty) return;
+    // Wait for a frame to ensure UI is ready
+    await Future.delayed(Duration(milliseconds: 100));
+    // Calculate status for all plans (fetch logs for each)
+    bool anyBehind = false;
+    bool allHappy = true;
+    bool anyOnTrack = false;
+    int planCount = 0;
+    for (final plan in studyPlans) {
+      final planId = plan['id'] ?? plan['sessionId'] ?? plan['sessionID'];
+      if (planId == null) continue;
+      planCount++;
+      final logsSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('session_logs')
+          .where('sessionPlanId', isEqualTo: planId)
+          .where('sessionType', isEqualTo: 'study')
+          .get();
+      final logs = logsSnap.docs.map((doc) => doc.data()).toList();
+      int _getInt(dynamic value, int fallback) {
+        if (value is int) return value;
+        if (value is double) return value.toInt();
+        if (value is String) return int.tryParse(value) ?? fallback;
+        return fallback;
+      }
+      final now = DateTime.now();
+      final pomodoroLength = _getInt(plan['pomodoroLength'], 25);
+      final numberOfPomodoros = _getInt(plan['numberOfPomodoros'], 4);
+      final sessionsPerDay = _getInt(plan['sessionsPerDay'], 1);
+      final selectedDays = (plan['selectedDays'] as List?)?.map((ts) => (ts as Timestamp).toDate()).toList() ?? [];
+      final todayDate = DateTime(now.year, now.month, now.day);
+      final pastSelectedDaysList = selectedDays.where((d) => d.isBefore(todayDate)).toList();
+      final expectedDay = pomodoroLength * numberOfPomodoros * sessionsPerDay;
+      final currentExpectedMinutes = expectedDay * pastSelectedDaysList.length;
+      final totalActualMinutes = logs.fold<int>(0, (sum, l) => sum + _getInt(l['duration'], 0));
+      String status;
+      if (pastSelectedDaysList.isEmpty) {
+        // If no selected days have passed, but user has studied, they are Ahead
+        if (totalActualMinutes > 0) {
+          status = 'Ahead';
+        } else {
+          status = 'On Track';
+        }
+      } else {
+        final currentReadinessScore = currentExpectedMinutes == 0
+            ? (totalActualMinutes > 0 ? 100 : 0)
+            : (totalActualMinutes / currentExpectedMinutes * 100);
+        if (currentReadinessScore > 105) {
+          status = 'Ahead';
+        } else if (currentReadinessScore >= 95) {
+          status = 'On Track';
+        } else {
+          status = 'Behind';
+        }
+      }
+      if (status == 'Behind') anyBehind = true;
+      if (status == 'On Track') anyOnTrack = true;
+      if (status != 'Ahead' && status != 'Completed') allHappy = false;
+    }
+    // Choose icon and message
+    String iconPath;
+    List<String> messages;
+    if (anyBehind) {
+      iconPath = 'assets/icon/upset-icon.png';
+      messages = [
+        "Incredible. You achieved the rare negative productivity.",
+        "At this point, the timer's doing more work than you.",
+        "You and your goals just filed for separation.",
+        "You stared into the void… and the void scrolled Instagram.",
+        "I've seen potatoes with better focus.",
+        "You opened the app, then ghosted it. Classic.",
+        "Even the tomato is questioning its life choices.",
+        "Reminder: thinking about doing work is not actually doing work.",
+        "If you were trying to break a productivity record—in reverse—you nailed it.",
+        "New achievement unlocked: master of majestic avoidance."
+      ];
+    } else if (allHappy && planCount > 0) {
+      iconPath = 'assets/icon/happy-icon.png';
+      messages = [
+        "Well, look at you! Brain gains detected 🧠💪",
+        "Are you studying or casting spells? Because that focus is magical ✨",
+        "Another Pomodoro? Who are you and what have you done with the procrastinator?",
+        "Alert: Productivity levels dangerously high. Proceed with snacks.",
+        "Keep this up and you'll earn a PhD in getting things DONE 🧑‍🎓",
+        "You versus distractions: 1-0. Cat approves. ��",
+        "Someone's on fire today… Is it the tomato or your brain?",
+        "If focus were a sport, you'd be in the Olympics right now.",
+        "Hey genius, save some smarts for the rest of us.",
+        "Studying like a boss. Tomato cat is mildly impressed 🍅😼"
+      ];
+    } else if (anyOnTrack) {
+      iconPath = 'assets/icon/neutral-icon.png';
+      messages = [
+        "Wow. You did… a thing. Look at you, existing productively-ish.",
+        "Not bad! Not great either… but hey, your chair's proud of you.",
+        "That was… acceptable. Gold star in lowercase.",
+        "Somewhere between 'meh' and 'okay'. Just like your cooking.",
+        "You moved the needle! Just barely, but technically it moved.",
+        "A round of applause! (from one very lazy cat)",
+        "You're not slacking, you're just… pacing yourself. Forever.",
+        "If mediocrity were a sport, you'd be on the podium.",
+        "Productivity level: lukewarm soup.",
+        "Hey, you did more than nothing. That's… mathematically positive!"
+      ];
+    } else {
+      // fallback: neutral
+      iconPath = 'assets/icon/neutral-icon.png';
+      messages = [
+        "Wow. You did… a thing. Look at you, existing productively-ish.",
+        "Not bad! Not great either… but hey, your chair's proud of you.",
+        "That was… acceptable. Gold star in lowercase.",
+        "Somewhere between 'meh' and 'okay'. Just like your cooking.",
+        "You moved the needle! Just barely, but technically it moved.",
+        "A round of applause! (from one very lazy cat)",
+        "You're not slacking, you're just… pacing yourself. Forever.",
+        "If mediocrity were a sport, you'd be on the podium.",
+        "Productivity level: lukewarm soup.",
+        "Hey, you did more than nothing. That's… mathematically positive!"
+      ];
+    }
+    messages.shuffle();
+    String message = messages.first;
+    // Show dialog after all calculations are done and UI is ready
+    await Future.delayed(Duration(milliseconds: 100));
+    if (!_motivationPopupShown) {
+      _motivationPopupShown = true;
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => _MotivationPopup(iconPath: iconPath, message: message),
+        );
+      }
     }
   }
 
@@ -672,6 +817,87 @@ class RankUpDialog extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MotivationPopup extends StatelessWidget {
+  final String iconPath;
+  final String message;
+  const _MotivationPopup({required this.iconPath, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: Stack(
+        children: [
+          Container(
+            padding: EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 4))],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: 40),
+                Align(
+                  alignment: Alignment.center,
+                  child: _ChatBubble(message: message),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: Center(
+              child: Image.asset(iconPath, width: 96, height: 96),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            child: IconButton(
+              icon: Icon(Icons.close, color: Colors.red, size: 28),
+              onPressed: () => Navigator.of(context).pop(),
+              tooltip: 'Close',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatBubble extends StatelessWidget {
+  final String message;
+  const _ChatBubble({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(top: 8),
+      padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(6),
+        ),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Text(
+        message,
+        style: TextStyle(fontSize: 16, color: Colors.red[900], fontWeight: FontWeight.w500),
+        textAlign: TextAlign.center,
       ),
     );
   }
