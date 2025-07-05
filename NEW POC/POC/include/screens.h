@@ -53,6 +53,8 @@ public:
     int getChoice();
     ScreenChoice getCurrentScreen();
     void switchScreen(ScreenChoice nextScreen);
+    void updateMascotDialogueContinuous();
+    void resetMascotTextPosition();
 private:
     Audio& audio;
     void handleValuesChange(int* value);
@@ -70,8 +72,8 @@ private:
     unsigned long pausedElapsedTime;
     int pomodoroCount;
     String lastTimerStr;
-    String sessionName; // Added for session name
-    String sessionId;   // Added to track current session ID
+    String sessionName;
+    String sessionId;
     unsigned long lastFaceUpdate;
     FaceType currentFace;
     const unsigned long FACE_UPDATE_INTERVAL = 10000;
@@ -79,5 +81,17 @@ private:
     unsigned long lastPollTime = 0;
     static std::vector<std::pair<String, String>> extractSessionNameIdPairs(const String& jsonString);
     static std::vector<String> extractNamesFromPairs(const std::vector<std::pair<String, String>>& pairs);
+
+    // Mascot Dialogue Variables
+    unsigned long lastMascotCharTime = 0;
+    int mascotDialogueIndex = 0;
+    bool mascotDialogueComplete = false;
+    String currentMascotText = "";
+
+    // Mascot Dialogue Functions
+    void startMascotDialogue(const String& text);
+    void updateMascotDialogue();
+
 };
+
 #endif

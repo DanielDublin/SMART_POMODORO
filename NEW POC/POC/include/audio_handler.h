@@ -53,7 +53,7 @@ private:
 
     bool isPlaying;
     bool soundEnabled;
-    File audioFile;
+    fs::File audioFile;
 };
 
 #endif

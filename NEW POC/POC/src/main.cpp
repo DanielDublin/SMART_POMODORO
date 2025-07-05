@@ -23,6 +23,11 @@ bool isPaired = false;
 void setup() {
   Serial.begin(115200);
   Serial.println("ESP32 POC Starting...");
+  if (!SPIFFS.begin(true)) {
+  Serial.println("SPIFFS Mount Failed");
+}
+
+
 
   setupDisplays();
   setupInputs();
@@ -149,26 +154,25 @@ void updateScreenIfNeeded(bool needsUpdate) {
 }
 
 void loop() {
-  handleButtons();
-  processWiFi();
-  updateNeoPixelEffects();
-  searchForPair(isPaired);
-  bool needsUpdate = false;
-  int rotaryChange = handleRotaryEncoder();
-  if (isPaired && screenManager.getCurrentScreen() == Screens::QR_SCREEN) {
-    needsUpdate = true;
-    isPaired = false;
-    screenManager.switchScreen(Screens::USER_PLANS_SCREEN);
-  }
-  handleBlueButtonNavigation(needsUpdate);
-  handleRotaryAdjustments(rotaryChange, needsUpdate);
-  handleWhiteButtonSelection(needsUpdate);
-  if (screenManager.getCurrentScreen() == Screens::USER_PLANS_SCREEN) {
-    screenManager.displayCurrentScreen(needsUpdate);
-  }
-  else {
-    updateScreenIfNeeded(needsUpdate);
-  }
-
-  delay(10);  // Prevent watchdog timeout
+    handleButtons();
+    processWiFi();
+    updateNeoPixelEffects();
+    searchForPair(isPaired);
+    bool needsUpdate = false;
+    int rotaryChange = handleRotaryEncoder();
+    if (isPaired && screenManager.getCurrentScreen() == Screens::QR_SCREEN) {
+        needsUpdate = true;
+        isPaired = false;
+        screenManager.switchScreen(Screens::USER_PLANS_SCREEN);
+    }
+    handleBlueButtonNavigation(needsUpdate);
+    handleRotaryAdjustments(rotaryChange, needsUpdate);
+    handleWhiteButtonSelection(needsUpdate);
+    screenManager.updateMascotDialogueContinuous();
+    if (screenManager.getCurrentScreen() == Screens::USER_PLANS_SCREEN) {
+        screenManager.displayCurrentScreen(needsUpdate);
+    } else {
+        updateScreenIfNeeded(needsUpdate);
+    }
+    delay(5); // Prevent watchdog timeout
 }

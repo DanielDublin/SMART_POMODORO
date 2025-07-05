@@ -1,4 +1,7 @@
 #include "displays.h"
+#include <FS.h>
+#include <SPIFFS.h>
+#include <PNGdec.h>
 
 // Create shared SPI instance
 SPIClass *vspi = NULL;
@@ -6,6 +9,9 @@ SPIClass *vspi = NULL;
 // Create display instances
 Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, OLED_DC, OLED_RES, OLED_CS);
 TFT_eSPI tft = TFT_eSPI();
+uint16_t lineBuffer[MASCOT_FACE_W];
+uint16_t rowBuffer[MASCOT_FACE_W];
+
 
 // Animation variables
 int animationFrame = 0;
@@ -32,14 +38,23 @@ static const unsigned char PROGMEM logo_bmp[] = {
   0b00000000, 0b00110000
 };
 
+int32_t drawPixel(int32_t x, int32_t y, uint16_t r, uint16_t g, uint16_t b, uint16_t a) {
+  if (x < 0 || x >= MASCOT_FACE_W || y < 0 || y >= MASCOT_FACE_H) {
+    return 0; // Skip pixels outside the image bounds
+  }
+  // Convert RGB888 to RGB565
+  uint16_t color = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+  rowBuffer[x] = color;
+  return 0;
+}
+
+
 void setupDisplays() {
   Serial.println("Setting up displays...");
   
-  // Initialize SPI bus that both displays will share
   vspi = new SPIClass(VSPI);
   vspi->begin(TFT_SCLK, -1, TFT_MOSI, -1);    // VSPI for both displays
   
-  // Initialize OLED display with SPI
   if(!oled.begin(SSD1306_SWITCHCAPVCC)) {
     Serial.println(F("SSD1306 allocation failed"));
     return;
@@ -52,14 +67,13 @@ void setupDisplays() {
   oled.println("OLED Ready!");
   oled.display();
   
-  // Initialize TFT display
   pinMode(TFT_LED, OUTPUT);
   digitalWrite(TFT_LED, LOW);  // Turn backlight off initially
   
   tft.init();
   tft.setRotation(3); // Landscape mode
   tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);  // Set text color with background
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setTextSize(1);
   
   digitalWrite(TFT_LED, HIGH);  // Turn backlight on after initialization
@@ -70,12 +84,10 @@ void setupDisplays() {
 }
 
 void updateDisplayAnimations() {
-  // Update animations at the specified speed
   if (millis() - lastAnimationUpdate > ANIMATION_SPEED) {
-    animationFrame = (animationFrame + 1) % 8; // 8 frames per animation cycle
+    animationFrame = (animationFrame + 1) % 8;
     lastAnimationUpdate = millis();
     
-    // Demo animations
     showOLEDAnimation(animationFrame);
     showTFTAnimation(animationFrame);
   }
@@ -132,11 +144,9 @@ void displayProgressBar(int percentage, bool onOLED) {
 void showOLEDAnimation(int frame) {
   oled.clearDisplay();
   
-  // Simple animation - spinning bitmap
   int centerX = SCREEN_WIDTH / 2 - 8;
   int centerY = SCREEN_HEIGHT / 2 - 8;
   
-  // Adjust position based on frame
   int offsetX = cos(frame * PI / 4) * 10;
   int offsetY = sin(frame * PI / 4) * 10;
   
@@ -147,12 +157,10 @@ void showOLEDAnimation(int frame) {
 void showTFTAnimation(int frame) {
   int centerX = tft.width() / 2;
   int centerY = tft.height() / 2;
-  int radius = 40;  // Larger radius for larger display
+  int radius = 40;
   
-  // Erase previous frame with black circle
   tft.fillCircle(centerX, centerY, radius + 5, TFT_BLACK);
   
-  // Draw new frame
   switch (frame % 4) {
     case 0:
       tft.fillCircle(centerX, centerY, radius, TFT_RED);
@@ -167,86 +175,74 @@ void showTFTAnimation(int frame) {
       tft.fillCircle(centerX, centerY, radius, TFT_YELLOW);
       break;
   }
-} 
+}
 
 void drawTextWithBox(const String& text, int x, int y, int size, uint16_t textColor, uint16_t boxColor) {
-  // Set font size
   tft.setTextSize(size);
-  tft.setTextColor(textColor, TFT_BLACK); // With background for clean redraw
+  tft.setTextColor(textColor, TFT_BLACK);
   tft.setCursor(x, y);
   tft.println(text);
 
-  // Estimate width and height of the text
-  int textWidth = text.length() * 6 * size;  // 6 pixels per char at size 1
-  int textHeight = 8 * size;                // 8 pixels per line at size 1
+  int textWidth = text.length() * 6 * size;
+  int textHeight = 8 * size;
 
-  // Draw rectangle around it
   tft.drawRect(x - 2, y - 2, textWidth + 4, textHeight + 4, boxColor);
 }
 
 int centerTextX(const String& text, int textSize) {
-  int charWidth = 6 * textSize;  // Default 6 pixels wide per char
+  int charWidth = 6 * textSize;
   return (ILI_SCREEN_WIDTH - text.length() * charWidth) / 2;
 }
 
 void drawMenu(const std::vector<String> options, int selected, int startY, bool redraw) {
-  static int lastSelected = -1;  // Keep track of last selected item
+  static int lastSelected = -1;
   
-  // Calculate maximum width needed for any option
   int maxWidth = 0;
-  int textSize = 2;  // Text size used for menu items
+  int textSize = 2;
   for (int i = 0; i < options.size(); i++) {
-    int width = options[i].length() * 6 * textSize;  // 6 pixels per char at size 1
+    int width = options[i].length() * 6 * textSize;
     if (width > maxWidth) {
       maxWidth = width;
     }
   }
   
-  // Add padding for the box
-  maxWidth += 8;  // 4 pixels padding on each side
+  maxWidth += 8;
   
   for (int i = 0; i < options.size(); i++) {
-    // Only redraw if it's a full redraw or if this item's selection state has changed
     if (redraw || i == selected || i == lastSelected) {
       uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
       int x = centerTextX(options[i], textSize);
       
-      // Clear only the menu item area
       tft.fillRect(x - 4, startY + i * 30 - 2, maxWidth, textSize * 8 + 4, TFT_BLACK);
       
-      // Draw the text and box
       drawTextWithBox(options[i], x, startY + i * 30, textSize, TFT_WHITE, boxColor);
     }
   }
   
-  lastSelected = selected;  // Remember current selection for next time
+  lastSelected = selected;
 }
 
 void drawValues(int values[], int valuesSize, const std::vector<String> options, int selected, int startY, bool redraw) {
-  static int lastSelected = -1;  // Keep track of last selected item
+  static int lastSelected = -1;
   
-  // Draw values
   for (int i = 0; i < valuesSize; i++) {
     if (redraw || i == selected || i == lastSelected) {
       uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
-      // Clear only the value area
       tft.fillRect(350 - 4, startY + i * 50 - 2, 100, 24, TFT_BLACK);
       drawTextWithBox(String(values[i], 10), 350, startY + i * 50, 2, TFT_WHITE, boxColor);
     }
   }
   
-  // Draw options
   for (int i = valuesSize; i < options.size() + valuesSize; i++) {
     if (redraw || i == selected || i == lastSelected) {
       uint16_t boxColor = (i == selected) ? TFT_GREEN : TFT_BLACK;
       int x = centerTextX(options[i - valuesSize], 2);
-      // Clear only the option area
       tft.fillRect(x - 4, startY + i * 50 - 2, options[i - valuesSize].length() * 12 + 8, 24, TFT_BLACK);
       drawTextWithBox(options[i - valuesSize], x, startY + i * 50, 2, TFT_WHITE, boxColor);
     }
   }
   
-  lastSelected = selected;  // Remember current selection for next time
+  lastSelected = selected;
 }
 
 void clearTFTArea(int x, int y, int width, int height) {
@@ -254,18 +250,16 @@ void clearTFTArea(int x, int y, int width, int height) {
 }
 
 int getDigitWidth(int textSize) {
-  return 6 * textSize; // Each digit is approximately 6 pixels wide at size 1
+  return 6 * textSize;
 }
 
 int getDigitHeight(int textSize) {
-  return 8 * textSize; // Each digit is approximately 8 pixels high at size 1
+  return 8 * textSize;
 }
 
 void displayTFTDigit(char digit, int x, int y, int size, uint16_t color) {
-  // Clear just the area for this digit
   clearTFTArea(x, y, getDigitWidth(size), getDigitHeight(size));
   
-  // Display the new digit
   tft.setTextSize(size);
   tft.setTextColor(color);
   tft.setCursor(x, y);
@@ -274,13 +268,11 @@ void displayTFTDigit(char digit, int x, int y, int size, uint16_t color) {
 
 void displayTFTTimer(const String& newTime, const String& oldTime, int x, int y, int size, uint16_t color) {
   int digitWidth = getDigitWidth(size);
-  int colonWidth = digitWidth; // Colon takes approximately same width as a digit
+  int colonWidth = digitWidth;
   
-  // Only update digits that have changed
   for (int i = 0; i < newTime.length(); i++) {
     if (oldTime.length() != newTime.length() || oldTime[i] != newTime[i]) {
       int digitX = x + (i * digitWidth);
-      // If it's the colon position, adjust spacing
       if (i > 1) {
         digitX += colonWidth/2;
       }
@@ -308,4 +300,92 @@ void displayOLEDFace(FaceType face) {
   }
   
   oled.display();
+}
+
+void drawMascotChatbox() {
+  tft.fillRect(MASCOT_CHATBOX_X, MASCOT_CHATBOX_Y, MASCOT_CHATBOX_W, MASCOT_CHATBOX_H, TFT_BLACK);
+  tft.drawRect(MASCOT_CHATBOX_X, MASCOT_CHATBOX_Y, MASCOT_CHATBOX_W, MASCOT_CHATBOX_H, TFT_WHITE);
+}
+
+void updateMascotFace(const uint8_t* imageData) {
+  // Clear the display area
+  tft.fillRect(MASCOT_FACE_X, MASCOT_FACE_Y, MASCOT_FACE_W, MASCOT_FACE_H, TFT_BLACK);
+
+  // Open the RGB565 binary file
+  fs::File file = SPIFFS.open("/resized_mascot.raw", "r");
+  if (!file) {
+    Serial.println("Failed to open resized_mascot.raw");
+    return;
+  }
+
+  // Verify file size (64 * 68 * 2 = 8704 bytes)
+  if (file.size() != MASCOT_FACE_W * MASCOT_FACE_H * 2) {
+    Serial.printf("File size %d bytes, expected %d bytes\n", file.size(), MASCOT_FACE_W * MASCOT_FACE_H * 2);
+    file.close();
+    return;
+  }
+
+  // Buffer for one row (64 pixels × 2 bytes = 128 bytes)
+  uint16_t rowBuffer[MASCOT_FACE_W];
+
+  // Read and display each row
+  for (int y = 0; y < MASCOT_FACE_H; y++) {
+    // Read one row (128 bytes)
+    if (file.read((uint8_t*)rowBuffer, MASCOT_FACE_W * 2) != MASCOT_FACE_W * 2) {
+      Serial.printf("Error reading row %d from file\n", y);
+      break;
+    }
+    // Push the row to the display
+    tft.pushImage(MASCOT_FACE_X, MASCOT_FACE_Y + y, MASCOT_FACE_W, 1, rowBuffer);
+  }
+
+  file.close();
+  Serial.println("Image displayed successfully");
+}
+
+void displayMascotText(const String& text, int charIndex, unsigned long& lastCharTime, Audio& audio) {
+  
+ 
+    if (charIndex < text.length()) {
+        char currentChar = text[charIndex];
+
+        // Build the word
+        wordBuffer += currentChar;
+        charIndex++;
+
+        // If it's a space or end of word, try printing the whole wordBuffer
+        if (currentChar == ' ' || charIndex == text.length()) {
+            int wordPixelWidth = wordBuffer.length() * 15;
+
+            // If word won't fit in current line, move to new line
+            if (col * 15 + wordPixelWidth > MASCOT_TEXT_MAX_COLS * 15) {
+                row++;
+                col = 0;
+                if (row >= MASCOT_TEXT_MAX_ROWS) return;
+            }
+
+            // Draw each character in wordBuffer
+            for (int i = 0; i < wordBuffer.length(); ++i) {
+                char c = wordBuffer[i];
+                tft.setTextColor(TFT_WHITE);
+                tft.setTextSize(2);
+                tft.setCursor(MASCOT_TEXT_X + col * 15, MASCOT_TEXT_Y + row * 20);
+                tft.print(c);
+
+                if (c != ' ') {
+                    bool useDoubleTime = (charIndex % 2 == 1);
+                    audio.playCharSound(useDoubleTime, 0.4);
+                }
+
+                col++;
+                if (col >= MASCOT_TEXT_MAX_COLS) {
+                    col = 0;
+                    row++;
+                    if (row >= MASCOT_TEXT_MAX_ROWS) return;
+                }
+            }
+
+            wordBuffer = "";  // Clear word buffer after printing
+        }
+    }
 }

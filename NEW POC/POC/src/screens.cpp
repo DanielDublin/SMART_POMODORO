@@ -1,11 +1,14 @@
 #include "screens.h"
 
+
+
 Screens::Screens(Audio& audio) : audio(audio), currentScreen(CHOOSE_MODE_SCREEN), selectedInputIndex(0), currentTotalOptions(2),
                                 roterySlower(false), pomodoroStartTime(0), currentPomodoroMinutes(0),
                                 isPomodoroRunning(false), isPomodoroTimerPaused(false), pausedElapsedTime(0),
                                 pomodoroCount(0), lastTimerStr(""),
                                 sessionName(""), sessionId(""),
                                 lastFaceUpdate(0), currentFace(FACE_FOCUSED) {}
+                                
 
 void Screens::init() {
     clearTFTScreen();
@@ -70,27 +73,41 @@ void Screens::chooseModeScreen(bool update) {
     sessionId = "";
     currentTotalOptions = 2;
     std::vector<String> options = {"Online", "Offline"};
-    drawMenu(options, selectedInputIndex, 200, update);
+    drawMenu(options, selectedInputIndex, 125, update);
     String prompt = "Choose Wi-Fi mode:";
-    displayTFTText(prompt, centerTextX(prompt, 3), 100, 3, TFT_BLUE, false);
+    displayTFTText(prompt, centerTextX(prompt, 3), 50, 3, TFT_BLUE, false);
+
+    if (update) {
+        startMascotDialogue("Hey! Pick a mode to start your study journey!");
+    }
 }
 
 void Screens::qrScreen(bool update) {
     sessionId = "";
     currentTotalOptions = 1;
     std::vector<String> options = {"Return"};
-    drawMenu(options, selectedInputIndex, 300, update);
+    drawMenu(options, selectedInputIndex, 50, update);
     png_handler::drawQR();
     handleInitialPairing();
+
+    if (update) {
+        startMascotDialogue("Scan the QR to pair with your device!");
+        updateMascotDialogue();
+    }
 }
 
 void Screens::wifiNotConnectedScreen(bool update) {
     sessionId = "";
     currentTotalOptions = 2;
     std::vector<String> options = {"Return", "Retry"};
-    drawMenu(options, selectedInputIndex, 200, update);
+    drawMenu(options, selectedInputIndex, 125, update);
     String prompt = "No network detected, connect to Wi-Fi";
-    displayTFTText(prompt, centerTextX(prompt, 2), 100, 2, TFT_RED, false);
+    displayTFTText(prompt, centerTextX(prompt, 2), 50, 2, TFT_RED, false);
+
+    if (update) {
+        startMascotDialogue("Oops! Looks like we're offline. Try connecting to Wi-Fi!");
+        updateMascotDialogue();
+    }
 }
 
 void Screens::userPlansScreen(bool update) {
@@ -233,7 +250,6 @@ void Screens::sessionSummaryScreen(bool update) {
     String rankStr = "Rank: 30";    //change from hardcoded
     displayTFTText(rankStr, 0, 50, 2, TFT_WHITE, false);
 
-    // Calculate and display Time studied
     unsigned long elapsedSeconds = (isPomodoroRunning && !isPomodoroTimerPaused) 
         ? (millis() - pomodoroStartTime) / 1000 + pausedElapsedTime / 1000 
         : 0;
@@ -241,15 +257,12 @@ void Screens::sessionSummaryScreen(bool update) {
     String timeStudiedStr = "Time studied: " + String(totalMinutes) + " minutes";
     displayTFTText(timeStudiedStr, 0, 100, 2, TFT_WHITE, false);
 
-    // Display Completed Sessions
-    int completedSessions = pomodoroCount; // Track completed sessions from Pomodoro cycles
+    int completedSessions = pomodoroCount;
     String completedSessionsStr = "Completed Sessions: " + String(completedSessions);
     displayTFTText(completedSessionsStr, 0, 150, 2, TFT_WHITE, false);
 
-
     int plannedSessions = initValues[4];
     if (pairingState == PairingState::PAIRED) {
-        // Online mode: Fetch planned sessions from Firebase if available
         String rawUserData;
         if (readSessionData(rawUserData, pairedUid, sessionId)) {
             userData.setJsonData(rawUserData);
@@ -258,14 +271,13 @@ void Screens::sessionSummaryScreen(bool update) {
                 userData.get(data, "fields/selectedDays/arrayValue/values")) {
                 FirebaseJsonArray arr;
                 data.getArray(arr);
-                plannedSessions = data.intValue * arr.size(); // Sessions per day * number of days
+                plannedSessions = data.intValue * arr.size();
             }
         }
     }     
     int progressPercentage = (completedSessions * 100) / (plannedSessions > 0 ? plannedSessions : 1);
-    displayProgressBar(progressPercentage, false); // false for TFT
+    displayProgressBar(progressPercentage, false);
 
-    // Draw menu options
     drawMenu(options, selectedInputIndex, 250, update);
 }
 
@@ -477,6 +489,16 @@ void Screens::switchScreen(ScreenChoice nextScreen) {
     clearTFTScreen();
     selectedInputIndex = 0;
     currentScreen = nextScreen;
+    mascotDialogueIndex = 0;
+    mascotDialogueComplete = false;
+    lastMascotCharTime = 0;
+    currentMascotText = "";
+    Serial.printf("Switching to screen: %d\n", currentScreen);
+    Serial.printf("row %d, col %d, selectedInputIndex %d\n", row, col, selectedInputIndex);
+    Serial.printf("current buffer: %s\n", wordBuffer.c_str());
+    resetMascotTextPosition();
+    Serial.printf("row %d, col %d, selectedInputIndex %d\n", row, col, selectedInputIndex);
+    Serial.printf("current buffer: %s\n", wordBuffer.c_str());
 }
 
 std::vector<std::pair<String, String>> Screens::extractSessionNameIdPairs(const String& jsonString) {
@@ -510,4 +532,47 @@ std::vector<String> Screens::extractNamesFromPairs(const std::vector<std::pair<S
         names.push_back(p.first);
     }
     return names;
+}
+
+void Screens::startMascotDialogue(const String& text) {
+
+   if (currentMascotText != text) {
+    currentMascotText = text;
+    mascotDialogueIndex = 0;
+    mascotDialogueComplete = false;
+    drawMascotChatbox();
+    updateMascotFace(nullptr);
+    resetMascotTextPosition();
+   }
+}
+
+
+void Screens::updateMascotDialogue() {
+
+
+    if (!mascotDialogueComplete) {
+        displayMascotText(currentMascotText, mascotDialogueIndex, lastMascotCharTime, audio);
+        if (mascotDialogueIndex >= currentMascotText.length()) {
+            mascotDialogueComplete = true;
+        } else {
+            mascotDialogueIndex++;
+        }
+    }
+
+}
+
+void Screens::updateMascotDialogueContinuous() {
+    if (currentScreen == CHOOSE_MODE_SCREEN || 
+        currentScreen == QR_SCREEN || 
+        currentScreen == WIFI_CONNECTION_SCREEN) {
+        updateMascotDialogue();
+    }
+}
+
+
+void Screens::resetMascotTextPosition() {
+    col = 0;
+    row = 0;
+    wordBuffer = "";
+    mascotDialogueIndex = 0;
 }

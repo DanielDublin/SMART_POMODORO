@@ -8,10 +8,10 @@
 #include <Adafruit_SSD1306.h>
 #include <vector>
 #include "config.h"
-#include "Faces.h"  // Include the anime faces
+#include "Faces.h"  // Keep for OLED faces
+#include "audio_handler.h" 
 
-//LVGL is not used in this version, but can be added later if needed
-
+// LVGL is not used in this version, but can be added later if needed
 
 // Define OLED display dimensions
 #define SCREEN_WIDTH 128
@@ -41,25 +41,28 @@ void displayProgressBar(int percentage, bool onOLED = true);
 void clearTFTScreen();
 void drawTextWithBox(const String& text, int x, int y, int size, uint16_t textColor, uint16_t boxColor);
 int centerTextX(const String& text, int textSize);
-void drawMenu(const std::vector<String> options, int selected, int startY,  bool redraw);
-void drawValues(int values[], int valuesSize, const std::vector<String> options, int selected, int startY,  bool redraw);
-// Animation functions
+void drawMenu(const std::vector<String> options, int selected, int startY, bool redraw);
+void drawValues(int values[], int valuesSize, const std::vector<String> options, int selected, int startY, bool redraw);
 void showOLEDAnimation(int animationId);
 void showTFTAnimation(int animationId);
-
-// New functions for optimized display
 void clearTFTArea(int x, int y, int width, int height);
 void displayTFTDigit(char digit, int x, int y, int size, uint16_t color);
 void displayTFTTimer(const String& newTime, const String& oldTime, int x, int y, int size, uint16_t color);
 int getDigitWidth(int textSize);
 int getDigitHeight(int textSize);
-
-// OLED Face functions
-void displayOLEDFace(FaceType face);
 void clearOLEDScreen();
+void displayOLEDFace(FaceType face);
 
+// New functions for mascot dialogue
+void drawMascotChatbox();
+void updateMascotFace(const uint8_t* imageData);
+void displayMascotText(const String& text, int index, unsigned long& lastCharTime, Audio& audio);
+void resetMascotTextPosition();
 
-// External declarations for SPI instance
 extern SPIClass *vspi;
 extern Adafruit_SSD1306 oled;
-extern TFT_eSPI tft; 
+extern TFT_eSPI tft;
+
+static int col = 0;
+static int row = 0;
+static String wordBuffer = "";
