@@ -32,7 +32,7 @@ void setupNeoPixel() {
     strip.setPixelColor(i, strip.Color(0, 0, 0)); // Off
     strip.show();
   }
-  
+  setAllPixels(0,0,0);
   Serial.println("NeoPixel initialized");
 }
 

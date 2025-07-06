@@ -93,6 +93,7 @@ void setupWiFi() {
 }
 
 void processWiFi() {
+    static unsigned long lastUpdateTime = millis();
     wm.process();
 
     if (wifiState == WiFiState::PENDING_PORTAL && !WiFi.isConnected() && 
@@ -113,9 +114,10 @@ void processWiFi() {
         // Check if time is beyond a reasonable threshold (e.g., after 2020)
         if (now > 1577836800) { // 2020-01-01 00:00:00 UTC
             if (onTimeSyncedCallback) onTimeSyncedCallback();
-        } else {
+        } else if (millis() - lastUpdateTime >= UPDATE_TIME) {
             // Optionally retry NTP sync
-            configTime(3 * 3600, 0, "il.pool.ntp.org");
+            configTime(3 * 3600, 0, "il.pool.ntp.org", "time.google.com", "pool.ntp.org");
+            lastUpdateTime = millis();
         }
     }
 

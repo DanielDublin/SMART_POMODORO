@@ -30,6 +30,7 @@ extern void (*onTimeSyncedCallback)();
 extern unsigned long portalStartTime;
 extern const unsigned long portalTimeout;
 extern bool portalStartLocked;
+const unsigned long UPDATE_TIME = 2000;
 
 // Function prototypes
 void setupWiFi();

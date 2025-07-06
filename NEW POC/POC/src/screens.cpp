@@ -253,6 +253,7 @@ void Screens::onlineSessionPlannerScreen(bool update) {
 }
 
 void Screens::sessionSummaryScreen(bool update) {
+    setAllPixels(0,0,0);
     currentTotalOptions = 1;
     std::vector<String> options = {"Return"};
     String prompt = "Sessions Summary - " + sessionName;
@@ -332,7 +333,7 @@ void Screens::pomodoroTimerScreen(bool update) {
         clearTFTScreen();
         clearOLEDScreen();
         String sessionType = "Focus Time";
-        displayTFTText(sessionType, centerTextX(sessionType, 3), 50, 3, TFT_BLUE, false);
+        displayTFTText(sessionType, centerTextX(sessionType, 3), 50, 3, TFT_YELLOW, false);
         drawMenu(options, selectedInputIndex, 250, true);
         displayOLEDFace(currentFace);
     }
@@ -355,26 +356,20 @@ void Screens::pomodoroTimerScreen(bool update) {
     int remainingMinutes = totalSeconds / 60;
     int remainingSeconds = totalSeconds % 60;
 
-    if (totalSeconds <= 0) {
-        Serial.println("----------------------totalSeconds <= 0-------------------------");
-        
+    if (totalSeconds <= 0) {     
         clearTFTScreen();
         clearOLEDScreen();
         audio.playVibration(1);
         if (currentCount == STUDY) {
-            Serial.println("---------------------- in if currentCount == STUDY-------------------------");
             pomodoroCount++;
             if (pomodoroCount % initValues[3] == 0) {
-                Serial.println("----------------------currentCount == LONG_BREAK-------------------------");
                 currentCount = LONG_BREAK;
             }
             else {
-                Serial.println("----------------------currentCount == SHORT_BREAK-------------------------");
                 currentCount = SHORT_BREAK;
             }
         }
         else {
-            Serial.println("----------------------in else currentCount == STUDY-------------------------");
             currentCount = STUDY;
             time_t now = time(nullptr);
             strftime(startTime, sizeof(startTime), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
@@ -400,24 +395,21 @@ void Screens::pomodoroTimerScreen(bool update) {
         }
 
         if (pomodoroCount == initValues[4]) {
-            Serial.println("----------------------pomodoroCount == initValues[4]-------------------------");
             switchScreen(SESSION_SUMMARY_SCREEN);
             isPomodoroRunning = false;
             displayCurrentScreen(update);
             return;
         }
         if (currentCount == LONG_BREAK) {
-            Serial.println("############################# currentCount == LONG_BREAK ##########################");
             currentPomodoroMinutes = initValues[2];
             String message = "Long Break Time!";
             displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_ORANGE, false);
             setAllPixels(255,165,0);
         } else if (currentCount == SHORT_BREAK) {
-            Serial.println("############################# currentCount == SHORT_BREAK ##########################");
             currentPomodoroMinutes = initValues[1];
             String message = "Short Break Time!";
-            displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
-            setAllPixels(0,255,0);
+            displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_PINK, false);
+            setAllPixels(255,0,255);
         }
         else {
             String sessionType = "Focus Time";
