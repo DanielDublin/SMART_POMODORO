@@ -74,6 +74,13 @@ class _DaySummaryScreenState extends State<DaySummaryScreen> {
       return startTime.isAfter(startOfDay.subtract(const Duration(milliseconds: 1))) && startTime.isBefore(endOfDay);
     }).toList();
     
+    // Sort logs by start time in ascending order
+    filteredLogs.sort((a, b) {
+      final startTimeA = (a['startTime'] as Timestamp).toDate();
+      final startTimeB = (b['startTime'] as Timestamp).toDate();
+      return startTimeA.compareTo(startTimeB);
+    });
+    
     // Set expected minutes to 0 if it's not a planned study day
     final expectedMinutes = isStudyDay ? widget.expectedSessions * widget.pomodoroLength * widget.numberOfPomodoros : 0;
     final actualMinutes = filteredLogs.fold<int>(0, (sum, log) => sum + (log['duration'] as int? ?? 0));
