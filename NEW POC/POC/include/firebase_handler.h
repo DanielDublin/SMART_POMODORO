@@ -21,6 +21,7 @@ void initFirebase();
 String processFirebase();
 void handleInitialPairing();
 void searchForPair(bool& paired);
+String readUserRank(String& uesrId);
 bool readSessionData(String& data, const String& userId, const String& sessionId);
 bool writeSessionLog(const String& userId, const String& logId, FirebaseJson& json);
 

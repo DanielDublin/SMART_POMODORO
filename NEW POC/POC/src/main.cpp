@@ -26,9 +26,6 @@ void setup() {
   if (!SPIFFS.begin(true)) {
   Serial.println("SPIFFS Mount Failed");
 }
-
-
-
   setupDisplays();
   setupInputs();
   audio.begin();
@@ -156,7 +153,7 @@ void updateScreenIfNeeded(bool needsUpdate) {
 void loop() {
     handleButtons();
     processWiFi();
-    updateNeoPixelEffects();
+    // updateNeoPixelEffects();
     searchForPair(isPaired);
     bool needsUpdate = false;
     int rotaryChange = handleRotaryEncoder();
@@ -174,5 +171,4 @@ void loop() {
     } else {
         updateScreenIfNeeded(needsUpdate);
     }
-    delay(5); // Prevent watchdog timeout
 }

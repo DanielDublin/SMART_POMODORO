@@ -224,6 +224,8 @@ void Screens::onlineSessionPlannerScreen(bool update) {
     }
     if (userData.get(data, "fields/sessionsPerDay/integerValue")) {
         sessionsPerDay = data.stringValue;
+    }
+    if (userData.get(data, "fields/numberOfPomodoros/integerValue")) {
         initValues[4] = data.intValue;
         numberOfPomodoros = data.stringValue;
     }
@@ -243,9 +245,9 @@ void Screens::onlineSessionPlannerScreen(bool update) {
 
     String deadlineFormatted = deadline.substring(8, 10) + "/" + deadline.substring(5, 7);
     displayTFTText(sessionName, 300, 50, 2, TFT_BLUE, false);
-    displayTFTText(deadlineFormatted, 300, 100, 2, TFT_BLUE, false);
-    displayTFTText(sessionsPerDay, 300, 150, 2, TFT_BLUE, false);
-    displayTFTText(studyDays, 300, 200, 2, TFT_BLUE, false);
+    displayTFTText(pomodoroLength, 300, 100, 2, TFT_BLUE, false);
+    displayTFTText(numberOfPomodoros, 300, 150, 2, TFT_BLUE, false);
+    displayTFTText(shortBreakLength, 300, 200, 2, TFT_BLUE, false);
 
     drawMenu(options, selectedInputIndex, 250, update);
 }
@@ -253,11 +255,18 @@ void Screens::onlineSessionPlannerScreen(bool update) {
 void Screens::sessionSummaryScreen(bool update) {
     currentTotalOptions = 1;
     std::vector<String> options = {"Return"};
-    String prompt = "Sessions Summary";
+    String prompt = "Sessions Summary - " + sessionName;
 
     displayTFTText(prompt, centerTextX(prompt, 3), 0, 3, TFT_BLUE, false);
 
-    String rankStr = "Rank: 30";    //change from hardcoded
+    String rankStr = "Rank: ";
+    String rank = readUserRank(pairedUid);
+    if (rank != "") {
+        rankStr += rank;
+    }
+    else{
+        rankStr += "rank not found";
+    }
     displayTFTText(rankStr, 0, 50, 2, TFT_WHITE, false);
 
     unsigned long elapsedSeconds = (isPomodoroRunning && !isPomodoroTimerPaused) 
@@ -316,6 +325,9 @@ void Screens::pomodoroTimerScreen(bool update) {
         currentFace = FACE_FOCUSED;
         pomodoroCount = 0;
         currentCount = STUDY;
+        time_t now = time(nullptr);
+        strftime(startTime, sizeof(startTime), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+        setAllPixels(255,255,0);
 
         clearTFTScreen();
         clearOLEDScreen();
@@ -345,6 +357,7 @@ void Screens::pomodoroTimerScreen(bool update) {
 
     if (totalSeconds <= 0) {
         Serial.println("----------------------totalSeconds <= 0-------------------------");
+        
         clearTFTScreen();
         clearOLEDScreen();
         audio.playVibration(1);
@@ -363,14 +376,16 @@ void Screens::pomodoroTimerScreen(bool update) {
         else {
             Serial.println("----------------------in else currentCount == STUDY-------------------------");
             currentCount = STUDY;
+            time_t now = time(nullptr);
+            strftime(startTime, sizeof(startTime), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
         }
         lastTimerStr = "";
         
-        if (pairingState == PairingState::PAIRED && currentScreen == POMODORO_TIMER_SCREEN && currentCount == STUDY){
+        if (pairingState == PairingState::PAIRED && currentCount != STUDY){
             FirebaseJson json;
             time_t now = time(nullptr);
             char timestamp[30];
-            strftime(startTime, sizeof(startTime), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+            strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
             json.set("fields/endTime/timestampValue", String(timestamp));
             json.set("fields/startTime/timestampValue", String(startTime));
             json.set("fields/duration/integerValue", initValues[0]);
@@ -378,12 +393,12 @@ void Screens::pomodoroTimerScreen(bool update) {
             json.set("fields/sessionPlanId/stringValue", sessionId);
             String logId = "log_" + String(timestamp);
             if (writeSessionLog(pairedUid, logId, json)) {
-                displayTFTText("Session logged!", 0, 200, 2, TFT_GREEN, false);
+                Serial.println("Session logged!");
             } else {
-                displayTFTText("Failed to log session", 0, 200, 2, TFT_RED, false);
+                Serial.println("Failed to log session");
             }
         }
-        
+
         if (pomodoroCount == initValues[4]) {
             Serial.println("----------------------pomodoroCount == initValues[4]-------------------------");
             switchScreen(SESSION_SUMMARY_SCREEN);
@@ -395,16 +410,19 @@ void Screens::pomodoroTimerScreen(bool update) {
             Serial.println("############################# currentCount == LONG_BREAK ##########################");
             currentPomodoroMinutes = initValues[2];
             String message = "Long Break Time!";
-            displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
+            displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_ORANGE, false);
+            setAllPixels(255,165,0);
         } else if (currentCount == SHORT_BREAK) {
             Serial.println("############################# currentCount == SHORT_BREAK ##########################");
             currentPomodoroMinutes = initValues[1];
             String message = "Short Break Time!";
             displayTFTText(message, centerTextX(message, 3), 50, 3, TFT_GREEN, false);
+            setAllPixels(0,255,0);
         }
         else {
             String sessionType = "Focus Time";
-            displayTFTText(sessionType, centerTextX(sessionType, 3), 50, 3, TFT_BLUE, false);
+            displayTFTText(sessionType, centerTextX(sessionType, 3), 50, 3, TFT_YELLOW, false);
+            setAllPixels(255,255,0);
         }
         currentFace = FACE_TIRED;
         displayOLEDFace(currentFace);
@@ -504,12 +522,12 @@ void Screens::switchScreen(ScreenChoice nextScreen) {
     mascotDialogueComplete = false;
     lastMascotCharTime = 0;
     currentMascotText = "";
-    Serial.printf("Switching to screen: %d\n", currentScreen);
-    Serial.printf("row %d, col %d, selectedInputIndex %d\n", row, col, selectedInputIndex);
-    Serial.printf("current buffer: %s\n", wordBuffer.c_str());
+    // Serial.printf("Switching to screen: %d\n", currentScreen);
+    // Serial.printf("row %d, col %d, selectedInputIndex %d\n", row, col, selectedInputIndex);
+    // Serial.printf("current buffer: %s\n", wordBuffer.c_str());
     resetMascotTextPosition();
-    Serial.printf("row %d, col %d, selectedInputIndex %d\n", row, col, selectedInputIndex);
-    Serial.printf("current buffer: %s\n", wordBuffer.c_str());
+    // Serial.printf("row %d, col %d, selectedInputIndex %d\n", row, col, selectedInputIndex);
+    // Serial.printf("current buffer: %s\n", wordBuffer.c_str());
 }
 
 std::vector<std::pair<String, String>> Screens::extractSessionNameIdPairs(const String& jsonString) {

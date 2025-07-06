@@ -3,6 +3,7 @@
 
 #include "displays.h"
 #include "inputs.h"
+#include "neopixel_control.h"
 #include "firebase_handler.h"
 #include "audio_handler.h"
 #include "png_handler.h"
@@ -36,8 +37,6 @@ public:
         LONG_BREAK,
         STUDY,
     } CurrentTimer;
-
-    char startTime[30];
     Screens(Audio& audio);
     void init();
     void displayCurrentScreen(bool update);
@@ -77,6 +76,7 @@ private:
     String sessionId;
     unsigned long lastFaceUpdate;
     FaceType currentFace;
+    char startTime[30];
     const unsigned long FACE_UPDATE_INTERVAL = 10000;
     const unsigned long POLLING_INTERVAL = 5000;
     unsigned long lastPollTime = 0;

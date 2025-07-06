@@ -225,6 +225,24 @@ String processFirebase() {
     }
 }
 
+String readUserRank(String& userId) {
+    if (!Firebase.ready() || wifiState != WiFiState::CONNECTED || timeSyncState != TimeSyncState::READY) {
+        Serial.println("Cannot read session: Firebase or WiFi not ready");
+        return "";
+    }
+    String path = "users/" + userId;  
+    if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", path.c_str(), "")) {
+        FirebaseJson json;
+        json.setJsonData(fbdo.payload());
+        FirebaseJsonData rank;
+        json.get(rank, "fields/rank/stringValue");
+        return rank.stringValue;
+    } else {
+        Serial.print("Failed to read session: ");
+        Serial.println(fbdo.errorReason());
+        return "";
+    } 
+}
 
 bool readSessionData(String& data, const String& userId, const String& sessionId) {
     if (!Firebase.ready() || wifiState != WiFiState::CONNECTED || timeSyncState != TimeSyncState::READY) {

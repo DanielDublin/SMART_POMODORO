@@ -85,6 +85,13 @@ void setAllPixels(uint32_t color) {
   strip.show();
 }
 
+void setAllPixels(int r, int g, int b) {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    strip.setPixelColor(i, strip.Color(r,g,b));
+  }
+  strip.show();
+}
+
 void setPixel(int pixel, uint32_t color) {
   if (pixel >= 0 && pixel < NUM_LEDS) {
     strip.setPixelColor(pixel, color);

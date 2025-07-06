@@ -7,6 +7,7 @@
 void setupNeoPixel();
 void updateNeoPixelEffects();
 void setAllPixels(uint32_t color);
+void setAllPixels(int r, int g, int b);
 void setPixel(int pixel, uint32_t color);
 void rainbowCycle(int wait);
 void breatheEffect(uint32_t color, int wait);
