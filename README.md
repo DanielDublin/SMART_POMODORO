@@ -6,7 +6,6 @@ The project aims to make the Pomodoro learning technique more tangible and acces
  
 ## Folder description :
 * ESP32: source code for the esp side (firmware).
-* Documentation: wiring diagram + basic operating instructions
 * Unit Tests: tests for individual hardware components
 * flutter_app : android app for the pomodor timer
 * Parameters: contains description of parameters and settings that can be modified IN YOUR CODE
