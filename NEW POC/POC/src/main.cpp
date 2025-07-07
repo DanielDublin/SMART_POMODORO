@@ -110,11 +110,25 @@ void handleWhiteButtonSelection(bool& needsUpdate) {
           screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
         }
         else if (choice == SECOND_OPTION) {
-          if (wifiState == WiFiState::CONNECTED) {
+          if (wifiState == WiFiState::CONNECTED && timeSyncState == TimeSyncState::SYNCED) {
             screenManager.switchScreen(Screens::QR_SCREEN);
+          }
+          else if (wifiState == WiFiState::CONNECTED && timeSyncState == TimeSyncState::PENDING) {
+            screenManager.switchScreen(Screens::SYNC_TIME_SCREEN);
           }
           else {
             setupWiFi();
+          }
+        }
+        break;
+
+      case Screens::SYNC_TIME_SCREEN:
+        if (choice == FIRST_OPTION) {
+          screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
+        }
+        else {
+          if (wifiState == WiFiState::CONNECTED && timeSyncState == TimeSyncState::SYNCED) {
+              screenManager.switchScreen(Screens::QR_SCREEN);
           }
         }
         break;

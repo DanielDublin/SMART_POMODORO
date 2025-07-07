@@ -69,6 +69,8 @@ void Screens::displayCurrentScreen(bool update) {
         qrScreen(update);
     } else if (currentScreen == WIFI_CONNECTION_SCREEN) {
         wifiNotConnectedScreen(update);
+    } else if (currentScreen == SYNC_TIME_SCREEN)  {
+        timeNotSyncedScreen(update);
     } else if (currentScreen == USER_PLANS_SCREEN) {
         userPlansScreen(update);
     } else if (currentScreen == SESSION_SUMMARY_SCREEN) {
@@ -113,6 +115,20 @@ void Screens::wifiNotConnectedScreen(bool update) {
 
     if (update) {
         startMascotDialogue("Oops! Looks like we're offline. Try connecting to Wi-Fi!");
+        updateMascotDialogue();
+    }
+}
+
+void Screens::timeNotSyncedScreen(bool update) {
+    sessionId = "";
+    currentTotalOptions = 2;
+    std::vector<String> options = {"Return", "Retry"};
+    drawMenu(options, selectedInputIndex, 125, update);
+    String prompt = "Please wait for the time to sync.";
+    displayTFTText(prompt, centerTextX(prompt, 2), 50, 2, TFT_RED, false);
+
+    if (update) {
+        startMascotDialogue("Please press retry in a few seconds.");
         updateMascotDialogue();
     }
 }
@@ -486,6 +502,14 @@ int Screens::getChoice() {
             return FIRST_OPTION;
         }
         if (selectedInputIndex == SECOND_OPTION) {
+            return SECOND_OPTION;
+        }
+    }
+    else if (currentScreen == SYNC_TIME_SCREEN) {
+        if (selectedInputIndex == FIRST_OPTION) {
+            return FIRST_OPTION;
+        }
+        else if (selectedInputIndex == SECOND_OPTION) {
             return SECOND_OPTION;
         }
     }

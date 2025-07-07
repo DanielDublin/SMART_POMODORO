@@ -25,6 +25,7 @@ public:
         QR_SCREEN,
         USER_PLANS_SCREEN,
         SESSION_SUMMARY_SCREEN,
+        SYNC_TIME_SCREEN,
     } ScreenChoice;
 
     typedef enum Options {
@@ -55,6 +56,7 @@ public:
     void switchScreen(ScreenChoice nextScreen);
     void updateMascotDialogueContinuous();
     void resetMascotTextPosition();
+    void timeNotSyncedScreen(bool update);
 private:
     Audio& audio;
     void handleValuesChange(int* value);
