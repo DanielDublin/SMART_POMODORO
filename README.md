@@ -8,7 +8,6 @@ The project aims to make the Pomodoro learning technique more tangible and acces
 * ESP32: source code for the esp side (firmware).
 * Unit Tests: tests for individual hardware components
 * flutter_app : android app for the pomodor timer
-* Parameters: contains description of parameters and settings that can be modified IN YOUR CODE
 * Assets: Audio files used in this project, images used in the esp app
 
 ## Arduino/ESP32 libraries used in this project:
