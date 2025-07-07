@@ -52,6 +52,7 @@ int getDigitWidth(int textSize);
 int getDigitHeight(int textSize);
 void clearOLEDScreen();
 void displayOLEDFace(FaceType face);
+void displayOLEDLogo();
 
 // New functions for mascot dialogue
 void drawMascotChatbox();

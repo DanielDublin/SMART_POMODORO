@@ -85,10 +85,11 @@ void Screens::chooseModeScreen(bool update) {
     drawMenu(options, selectedInputIndex, 125, update);
     String prompt = "Choose Wi-Fi mode:";
     displayTFTText(prompt, centerTextX(prompt, 3), 50, 3, TFT_BLUE, false);
-
+    displayOLEDLogo();
     if (update) {
         startMascotDialogue("Hey! Pick a mode to start your study journey!");
     }
+  
 }
 
 void Screens::qrScreen(bool update) {
