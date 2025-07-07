@@ -25,7 +25,6 @@ String pairedUserId = "";
 PairingState pairingState = PairingState::UNPAIRED;
 
 // Polling interval (milliseconds)
-const unsigned long POLLING_INTERVAL = 5000;
 unsigned long lastPollTime = 0;
 
 void initFirebase() {

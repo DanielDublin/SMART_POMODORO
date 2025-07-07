@@ -11,7 +11,7 @@
 // Rotary Encoder
 #define ROT_CLK   26    // Clock
 #define ROT_DT    27    // Data
-#define ROT_SW    -1    // Switch/Button currently doesnt work
+#define ROT_SW    -1    // Switch/Button currently not in use
 
 // Audio (MAX98357A I2S Amplifier)
 #define I2S_DOUT  13    // Data Out
@@ -49,4 +49,48 @@
 #define MASCOT_FACE_W 64
 #define MASCOT_FACE_H 68
 
+// I2S configuration
+#define I2S_NUM              I2S_NUM_0
+#define I2S_SAMPLE_RATE      44100
+#define I2S_BITS_PER_SAMPLE  I2S_BITS_PER_SAMPLE_16BIT
+#define I2S_BCLK             25  // Bit clock pin
+#define I2S_LRC              12  // Left/right clock pin
+#define I2S_DOUT             13  // Data out pin
+
+// I2S communication format
+#define I2S_COMM_FORMAT      I2S_COMM_FORMAT_STAND_I2S
+
+// DMA buffer configuration
+#define I2S_DMA_BUF_COUNT    4
+#define I2S_DMA_BUF_LEN      1024
+
+// Define OLED display dimensions
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define TFT_LED 32
+#define OLED_NEW_LINE 16
+// Define credentials for the ESP32's configuration AP
+#define CONFIG_AP_SSID "AutoConnectAP" // AP name for configuration portal
+
+// Define TFT display dimensions
+#define ILI_SCREEN_WIDTH 480
+#define ILI_SCREEN_HIEGHT 320
+
+//User choices for the options on the screen
+#define FIRST_OPTION 0
+#define SECOND_OPTION 1
+#define CONFIRM 4
+#define RETURN 5
+
+//Intervals for updating screens/checking if data was updated in db
+#define FACE_UPDATE_INTERVAL 10000
+#define POLLING_INTERVAL 5000
+#define UPDATE_TIME 2000
+
+
+#define ANIMATION_SPEED 100 // ms between frames
+
+#define DEBOUNCE_DELAY 50  //delay so that to roter will read one value at a time
+
+#define PORTAL_TIMEOUT 300000 // 300 seconds to connect to the wifi
 #endif // CONFIG_H

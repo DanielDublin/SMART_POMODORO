@@ -10,7 +10,6 @@ volatile bool rotaryButtonState = false;
 unsigned long lastBlueDebounceTime = 0;
 unsigned long lastWhiteDebounceTime = 0;
 unsigned long lastRotaryDebounceTime = 0;
-const unsigned long debounceDelay = 50;
 
 // Rotary encoder
 ESP32Encoder encoder;
@@ -43,7 +42,7 @@ void handleButtons() {
   int rotarySwitchCurrent = digitalRead(ROT_SW);
   
   // Handle blue button with debounce
-  if ((millis() - lastBlueDebounceTime) > debounceDelay) {
+  if ((millis() - lastBlueDebounceTime) > DEBOUNCE_DELAY) {
     if (blueCurrent == BUTTON_ACTIVE_STATE && !blueButtonState) {
       blueButtonState = true;
       Serial.println("Blue button pressed");
@@ -56,7 +55,7 @@ void handleButtons() {
   }
   
   // Handle white button with debounce
-  if ((millis() - lastWhiteDebounceTime) > debounceDelay) {
+  if ((millis() - lastWhiteDebounceTime) > DEBOUNCE_DELAY) {
     if (whiteCurrent == BUTTON_ACTIVE_STATE && !whiteButtonState) {
       whiteButtonState = true;
       Serial.println("White button pressed");
@@ -69,7 +68,7 @@ void handleButtons() {
   }
   
   // Handle rotary button with debounce
-  if ((millis() - lastRotaryDebounceTime) > debounceDelay) {
+  if ((millis() - lastRotaryDebounceTime) > DEBOUNCE_DELAY) {
     // Serial.printf("rotarySwitchCurrent: %d\n", rotarySwitchCurrent);
     // Serial.printf("rotaryButtonState: %d\n", rotaryButtonState);
     if (rotarySwitchCurrent == BUTTON_ACTIVE_STATE && !rotaryButtonState) {

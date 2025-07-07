@@ -9,11 +9,6 @@
 #include "png_handler.h"
 #include <vector>
 
-#define FIRST_OPTION 0
-#define SECOND_OPTION 1
-#define CONFIRM 4
-#define RETURN 5
-
 class Screens {
 public:
     typedef enum ScreenChoice {
@@ -79,8 +74,6 @@ private:
     unsigned long lastFaceUpdate;
     FaceType currentFace;
     char startTime[30];
-    const unsigned long FACE_UPDATE_INTERVAL = 10000;
-    const unsigned long POLLING_INTERVAL = 5000;
     unsigned long lastPollTime = 0;
     static std::vector<std::pair<String, String>> extractSessionNameIdPairs(const String& jsonString);
     static std::vector<String> extractNamesFromPairs(const std::vector<std::pair<String, String>>& pairs);

@@ -16,7 +16,6 @@ uint16_t rowBuffer[MASCOT_FACE_W];
 // Animation variables
 int animationFrame = 0;
 unsigned long lastAnimationUpdate = 0;
-const int ANIMATION_SPEED = 100; // ms between frames
 
 int col = 0;
 int row = 0;

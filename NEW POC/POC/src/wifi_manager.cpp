@@ -9,7 +9,6 @@ WiFiState wifiState = WiFiState::DISCONNECTED;
 TimeSyncState timeSyncState = TimeSyncState::PENDING;
 void (*onTimeSyncedCallback)() = nullptr;
 unsigned long portalStartTime = 0;
-const unsigned long portalTimeout = 300000; // 300 seconds
 bool portalStartLocked = false;
 
 void setupWiFi() {
@@ -27,7 +26,6 @@ void setupWiFi() {
     displayOLEDText("WiFi Setup...", 0, OLED_NEW_LINE*0, 1, true);
     displayOLEDText("Connect to:", 0, OLED_NEW_LINE*1, 1, false);
     displayOLEDText(CONFIG_AP_SSID, 0, OLED_NEW_LINE*2, 1, false);
-    displayOLEDText("Pass: " + String(CONFIG_AP_PASSWORD), 0, OLED_NEW_LINE*3, 1, false);
 
     // Time sync callback
     onTimeSyncedCallback = []() {
@@ -103,7 +101,7 @@ void processWiFi() {
     }
 
     if (wifiState == WiFiState::CONFIG_PORTAL && portalStartTime > 0 && 
-        millis() - portalStartTime > portalTimeout && !WiFi.isConnected()) {
+        millis() - portalStartTime > PORTAL_TIMEOUT && !WiFi.isConnected()) {
         Serial.println("Config portal timed out, restarting...");
         wm.startConfigPortal("AutoConnectAP");
         portalStartTime = millis();

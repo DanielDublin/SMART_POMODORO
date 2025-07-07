@@ -5,7 +5,6 @@
 #include "qr_code.h"
 #include "displays.h"
 
-#define MAX_IMAGE_WIDTH 480
 
 namespace png_handler {
   void pngDraw(PNGDRAW *pDraw);

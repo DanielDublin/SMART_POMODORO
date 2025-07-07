@@ -5,7 +5,7 @@ int16_t xpos = 0;
 int16_t ypos = 0;
 
 void png_handler::pngDraw(PNGDRAW *pDraw) {
-  uint16_t lineBuffer[MAX_IMAGE_WIDTH];
+  uint16_t lineBuffer[ILI_SCREEN_WIDTH];
   png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
   tft.pushImage(xpos, ypos + pDraw->y, pDraw->iWidth, 1, lineBuffer);
 }
