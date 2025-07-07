@@ -33,7 +33,8 @@ The project aims to make the Pomodoro learning technique more tangible and acces
 * Rotary Encoder Sensor x 1
 
 ## Connection diagram
-:![wiring](https://github.com/user-attachments/assets/b1349508-aed7-4ffc-9473-f00f5b5d0ffe)
+![wiring](https://github.com/user-attachments/assets/843548a5-4f31-48d6-9bd8-a6c5163b87e4)
+
 
 # Project Poster:
  ![Poster](https://github.com/user-attachments/assets/df82ec46-3db6-455d-9cce-202308ef7d11)
