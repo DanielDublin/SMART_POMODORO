@@ -36,7 +36,7 @@ The project aims to make the Pomodoro learning technique more tangible and acces
 :![wiring](https://github.com/user-attachments/assets/b1349508-aed7-4ffc-9473-f00f5b5d0ffe)
 
 # Project Poster:
-#[3  Smart Pomodoro for Learning Management IOT.pdf](https://github.com/user-attachments/files/21109559/3.Smart.Pomodoro.for.Learning.Management.IOT.pdf)
- 
+ ![Poster](https://github.com/user-attachments/assets/df82ec46-3db6-455d-9cce-202308ef7d11)
+
 This project is part of ICST - The Interdisciplinary Center for Smart Technologies, Taub Faculty of Computer Science, Technion
 https://icst.cs.technion.ac.il/
