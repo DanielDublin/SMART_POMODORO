@@ -3,3 +3,4 @@ ESP32/.gitignore
 ESP32/platformio.ini
 ESP32/.vscode/extensions.json
 ESP32/lib/README
+ESP32/NEW POC/POC/include/secrets.h
