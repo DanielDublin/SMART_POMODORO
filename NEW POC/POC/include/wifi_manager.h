@@ -28,7 +28,6 @@ extern WiFiState wifiState;
 extern TimeSyncState timeSyncState;
 extern void (*onTimeSyncedCallback)();
 extern unsigned long portalStartTime;
-extern const unsigned long portalTimeout;
 extern bool portalStartLocked;
 
 // Function prototypes

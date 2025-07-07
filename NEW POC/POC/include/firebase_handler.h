@@ -8,6 +8,7 @@
 #include <ArduinoJson.h>        // ArduinoJson v7
 #include <SPIFFS.h>             // For SPIFFS file storage
 #include "png_handler.h"          // For QR code
+#include "secrets.h"
 
 // Enum for pairing states
 enum class PairingState {
