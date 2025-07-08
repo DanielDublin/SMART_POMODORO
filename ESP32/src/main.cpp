@@ -64,10 +64,19 @@ void handleWhiteButtonSelection(bool& needsUpdate) {
     switch (currentScreen) {
       case Screens::CHOOSE_MODE_SCREEN:
         if (choice == Screens::ONLINE) {
-          screenManager.switchScreen(
-            wifiState == WiFiState::CONNECTED ? Screens::QR_SCREEN : Screens::WIFI_CONNECTION_SCREEN
-          );
-        } else if (choice == Screens::OFFLINE) {
+          if (wifiState == WiFiState::CONNECTED) {
+            if(timeSyncState == TimeSyncState::PENDING) {
+              screenManager.switchScreen(Screens::SYNC_TIME_SCREEN);
+            }
+            else {
+              screenManager.switchScreen(Screens::QR_SCREEN);
+            }
+          }
+          else {
+            screenManager.switchScreen(Screens::WIFI_CONNECTION_SCREEN);
+          } 
+        }
+         else if (choice == Screens::OFFLINE) {
           screenManager.switchScreen(Screens::OFFLINE_POMODORO_SETTINGS_SCREEN);
         }
         break;
