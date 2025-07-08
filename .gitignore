@@ -1,4 +1,5 @@
-ESP32/.gitignore
-ESP32/.vscode/*
+
+ESP32/.vscode
 ESP32/lib/README
 ESP32/include/secrets.h
+
