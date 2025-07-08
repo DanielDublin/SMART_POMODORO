@@ -143,6 +143,7 @@ void handleWhiteButtonSelection(bool& needsUpdate) {
         break;  
       case Screens::SESSION_SUMMARY_SCREEN:
         if (choice == RETURN) {
+          audio.playConfirmation(0.7);
           screenManager.switchScreen(Screens::CHOOSE_MODE_SCREEN);
         }
         break;
